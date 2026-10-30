@@ -70,8 +70,11 @@ public class ValuationEngine {
     }
 
     private void seedAnchors() {
-        seedFromConfigList(Config.BASE_ITEMS.get(), false);
+        // 1. Load broad categories first to set the baseline
         seedFromConfigList(Config.BASE_TAGS.get(), true);
+
+        // 2. Load individual items second so they strictly override tag values
+        seedFromConfigList(Config.BASE_ITEMS.get(), false);
     }
 
     private void seedFromConfigList(List<? extends String> entries, boolean isTag) {
@@ -80,10 +83,16 @@ public class ValuationEngine {
             if (parts.length != 2) continue;
 
             String identifier = parts[0];
+            String[] valParts = parts[1].split(";");
+
             float baseValue;
+            int techLevel = Constants.BASE_TECH_LEVEL;
 
             try {
-                baseValue = Float.parseFloat(parts[1]);
+                baseValue = Float.parseFloat(valParts[0]);
+                if (valParts.length > 1) {
+                    techLevel = Integer.parseInt(valParts[1]);
+                }
             } catch (NumberFormatException e) {
                 continue;
             }
@@ -91,7 +100,7 @@ public class ValuationEngine {
             Set<Item> resolvedItems = isTag ? TagResolver.resolveTag(identifier) : TagResolver.resolveItem(identifier);
 
             for (Item item : resolvedItems) {
-                itemValues.put(item, new ItemValuation(baseValue, 0, Constants.BASE_TECH_LEVEL));
+                itemValues.put(item, new ItemValuation(baseValue, 0, techLevel));
             }
         }
     }
@@ -122,47 +131,70 @@ public class ValuationEngine {
         float totalValue = 0;
         int maxIngredientDepth = 0;
         int recipeTechLevel = Constants.BASE_TECH_LEVEL;
+        boolean canResolve = true;
 
         for (Ingredient ingredient : holder.value().getIngredients()) {
             if (ingredient.isEmpty()) continue;
 
-            ItemValuation cheapestValid = findCheapestIngredient(ingredient);
-            if (!cheapestValid.isKnown()) {
-                return false;
+            ItemValuation cheapest = findCheapestIngredient(ingredient);
+
+            if (cheapest == null) {
+                canResolve = false;
+                break; // Stop evaluating this recipe; a base ingredient is missing
             }
 
-            totalValue += cheapestValid.value();
-            maxIngredientDepth = Math.max(maxIngredientDepth, cheapestValid.depth());
-            recipeTechLevel = Math.max(recipeTechLevel, cheapestValid.techLevel());
+            totalValue += cheapest.value();
+            recipeTechLevel = Math.max(recipeTechLevel, cheapest.techLevel());
+            maxIngredientDepth = Math.max(maxIngredientDepth, cheapest.depth());
         }
 
-        if (totalValue <= 0) return false;
+        if (canResolve) {
+            float finalValue = (totalValue * Constants.DEFAULT_RECIPE_MULTIPLIER) / resultStack.getCount();
+            int newDepth = maxIngredientDepth + 1;
 
-        float finalValue = (totalValue * Constants.DEFAULT_RECIPE_MULTIPLIER) / resultStack.getCount();
-        int finalDepth = maxIngredientDepth + 1;
-
-        ItemValuation currentValuation = getValuation(resultItem);
-
-        if (!currentValuation.isKnown() || finalValue < currentValuation.value()) {
-            itemValues.put(resultItem, new ItemValuation(finalValue, finalDepth, recipeTechLevel));
-            return true;
+            ItemValuation existingValuation = itemValues.get(resultItem);
+            if (existingValuation == null || finalValue < existingValuation.value()) {
+                itemValues.put(resultItem, new ItemValuation(finalValue, newDepth, recipeTechLevel));
+                return true;
+            }
         }
 
         return false;
     }
 
     private ItemValuation findCheapestIngredient(Ingredient ingredient) {
-        ItemValuation best = ItemValuation.UNKNOWN;
+        float cheapestValue = Float.MAX_VALUE;
+        int bestDepth = 0;
+        int bestTechLevel = 0;
+        boolean resolved = false;
 
         for (ItemStack stack : ingredient.getItems()) {
-            ItemValuation val = getValuation(stack.getItem());
+            Item item = stack.getItem();
+            ItemValuation valuation = itemValues.get(item);
 
-            if (val.isKnown()) {
-                if (!best.isKnown() || val.value() < best.value()) {
-                    best = val;
+            if (valuation != null) {
+                float currentCost = valuation.value();
+
+                // Handle Recipe Remainders using the stack context
+                if (stack.hasCraftingRemainingItem()) {
+                    ItemStack remainderStack = stack.getCraftingRemainingItem();
+                    Item remainderItem = remainderStack.getItem();
+                    ItemValuation remainderValuation = itemValues.get(remainderItem);
+
+                    if (remainderValuation != null) {
+                        currentCost = Math.max(0.01f, currentCost - remainderValuation.value());
+                    }
+                }
+
+                if (currentCost < cheapestValue) {
+                    cheapestValue = currentCost;
+                    bestDepth = valuation.depth();
+                    bestTechLevel = valuation.techLevel();
+                    resolved = true;
                 }
             }
         }
-        return best;
+
+        return resolved ? new ItemValuation(cheapestValue, bestDepth, bestTechLevel) : null;
     }
 }
