@@ -1,0 +1,13 @@
+{
+  "itemGroup.sweetbusiness": "Example Mod Tab",
+  "block.sweetbusiness.example_block": "Example Block",
+  "item.sweetbusiness.example_item": "Example Item",
+
+  "sweetbusiness.configuration.title": "Sweet Business Configs",
+  "sweetbusiness.configuration.section.sweetbusiness.common.toml": "Sweet Business Configs",
+  "sweetbusiness.configuration.section.sweetbusiness.common.toml.title": "Sweet Business Configs",
+  "sweetbusiness.configuration.items": "Item List",
+  "sweetbusiness.configuration.logDirtBlock": "Log Dirt Block",
+  "sweetbusiness.configuration.magicNumberIntroduction": "Magic Number Text",
+  "sweetbusiness.configuration.magicNumber": "Magic Number"
+}
