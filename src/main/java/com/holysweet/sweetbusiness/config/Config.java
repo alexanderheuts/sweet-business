@@ -16,24 +16,93 @@ public class Config {
         builder.comment("Economy and Valuation Engine Settings").push("valuation");
 
         BASE_ITEMS = builder
-                .comment("Define base individual items and their starting values.",
-                        "Format: 'namespace:item_id=value'")
+                .comment("Define base individual items, starting values, and optional tech levels.",
+                        "Format: 'namespace:item_id=value;techLevel' (Tech level is optional, defaults to 1)")
                 .defineList("baseItems",
                         () -> List.of(
-                                "minecraft:clay_ball=1.0"
+                                // Earth & Minerals
+                                "minecraft:clay_ball=0.1",
+                                "minecraft:flint=0.1",
+                                "minecraft:gravel=0.1",
+                                "minecraft:obsidian=0.5",
+                                "minecraft:amethyst_shard=1.0;2",
+                                "minecraft:diamond=3.0;2",
+                                "minecraft:snowball=0.1",
+                                "minecraft:glowstone_dust=0.5;2",
+                                "minecraft:ancient_debris=5.0;4",
+
+                                // Dimension Terrain
+                                "minecraft:netherrack=0.1",
+                                "minecraft:end_stone=0.1",
+                                "minecraft:soul_sand=0.1",
+                                "minecraft:soul_soil=0.1",
+                                "minecraft:blackstone=0.1",
+                                "minecraft:basalt=0.1",
+
+                                // Agriculture & Forage
+                                "minecraft:kelp=0.1",
+                                "minecraft:sugar_cane=0.1",
+                                "minecraft:bamboo=0.1",
+                                "minecraft:cocoa_beans=0.1",
+                                "minecraft:sweet_berries=0.1",
+                                "minecraft:wheat_seeds=0.1",
+                                "minecraft:pumpkin_seeds=0.1",
+                                "minecraft:melon_seeds=0.1",
+                                "minecraft:beetroot_seeds=0.1",
+                                "minecraft:red_mushroom=0.1",
+                                "minecraft:brown_mushroom=0.1",
+                                "minecraft:carrot=0.1",
+                                "minecraft:potato=0.1",
+                                "minecraft:nether_wart=0.1",
+                                "minecraft:apple=0.1",
+                                "minecraft:cactus=0.1",
+                                "minecraft:chorus_fruit=0.5;3",
+
+                                // Animal & Mob Drops
+                                "minecraft:egg=0.5",
+                                "minecraft:honeycomb=0.5",
+                                "minecraft:feather=0.5;2",
+                                "minecraft:leather=0.5;2",
+                                "minecraft:bone=0.5;2",
+                                "minecraft:rotten_flesh=0.5;2",
+                                "minecraft:string=0.5;2",
+                                "minecraft:spider_eye=0.5;2",
+                                "minecraft:gunpowder=0.5;2",
+                                "minecraft:slime_ball=0.5;2",
+                                "minecraft:ink_sac=0.5;2",
+                                "minecraft:glow_ink_sac=0.5;2",
+
+                                // Gated & High-Tech Drops
+                                "minecraft:phantom_membrane=2.0;3",
+                                "minecraft:prismarine_shard=2.0;3",
+                                "minecraft:prismarine_crystals=2.0;3",
+                                "minecraft:ender_pearl=3.0;3",
+                                "minecraft:blaze_rod=3.0;3",
+                                "minecraft:breeze_rod=3.0;2",
+                                "minecraft:shulker_shell=5.0;3",
+                                "minecraft:ghast_tear=5.0;4",
+                                "minecraft:nether_star=50.0;5"
                         ),
                         () -> "",
                         Config::validateAnchorEntry);
 
         BASE_TAGS = builder
-                .comment("Define base tags and their starting values. All items in the tag receive this value.",
-                        "Format: 'namespace:tag_id=value' (Do NOT use the # prefix)")
+                .comment("Define base tags, starting values, and optional tech levels.",
+                        "Format: 'namespace:tag_id=value;techLevel' (Do NOT use the # prefix)")
                 .defineList("baseTags",
                         () -> List.of(
-                                "minecraft:logs=2.0",
-                                "minecraft:dirt=1.0",
-                                "c:cobblestones=1.0",
-                                "c:ores=15.0"
+                                "c:cobblestones=0.1",
+                                "minecraft:dirt=0.1",
+                                "minecraft:sand=0.1",
+                                "minecraft:logs=0.1",
+                                "c:dyes=0.1",
+                                "c:ores=1.0",
+                                "c:raw_materials=1.0",
+                                "c:dusts/redstone=1.0",
+                                "c:gems/lapis=1.0",
+                                "c:gems/quartz=1.0",
+                                "c:gems/coal=1.0",
+                                "c:gems/emerald=3.0;2"
                         ),
                         () -> "",
                         Config::validateAnchorEntry);
@@ -47,7 +116,11 @@ public class Config {
             String[] parts = str.split("=");
             if (parts.length == 2) {
                 try {
-                    Float.parseFloat(parts[1]); // Validate the value is a number
+                    String[] valParts = parts[1].split(";");
+                    Float.parseFloat(valParts[0]);
+                    if (valParts.length > 1) {
+                        Integer.parseInt(valParts[1]);
+                    }
                     return true;
                 } catch (NumberFormatException e) {
                     return false;
