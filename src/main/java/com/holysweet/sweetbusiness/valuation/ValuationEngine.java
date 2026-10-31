@@ -7,6 +7,7 @@ import com.holysweet.sweetbusiness.util.TierResolver;
 import com.holysweet.sweetbusiness.valuation.discovery.BlockDropDiscoverer;
 import com.holysweet.sweetbusiness.valuation.discovery.WorldGenVolumeDiscoverer;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -91,6 +92,8 @@ public class ValuationEngine {
         } else {
             LOGGER.info("All loaded recipes were successfully mapped!");
         }
+
+        logConfigDiscrepancies();
     }
 
     private void seedAnchors() {
@@ -124,7 +127,8 @@ public class ValuationEngine {
             Set<Item> resolvedItems = isTag ? TagResolver.resolveTag(identifier) : TagResolver.resolveItem(identifier);
 
             for (Item item : resolvedItems) {
-                itemValues.put(item, new ItemValuation(baseValue, 0, techLevel, false));
+                // Config values are Override values
+                itemValues.put(item, ItemValuation.createOverride(baseValue, techLevel));
             }
         }
     }
@@ -147,7 +151,12 @@ public class ValuationEngine {
             // 1. Incorporate the block itself into the item list as a manual anchor
             Item blockItem = block.asItem();
             if (blockItem != Items.AIR) {
-                if (!itemValues.containsKey(blockItem)) {
+                ItemValuation existingBlock = itemValues.get(blockItem);
+                if (existingBlock != null) {
+                    if (existingBlock.isConfigOverride()) {
+                        itemValues.put(blockItem, existingBlock.withCalculatedValue((float) blockValue));
+                    }
+                } else {
                     itemValues.put(blockItem, new ItemValuation((float) blockValue, 0, techLevel, false));
                 }
             }
@@ -162,12 +171,18 @@ public class ValuationEngine {
             // 3. Evaluate the economic values of those drops
             Map<Item, Double> evaluatedDrops = BlockDropEvaluator.evaluateDropValues(blockValue, rawDrops);
 
-            // 4. Safely store the results, respecting manual Config overrides
+            // 4. Safely store the results, updating shadow values for overrides
             for (Map.Entry<Item, Double> dropEntry : evaluatedDrops.entrySet()) {
                 Item droppedItem = dropEntry.getKey();
+                float dropValue = dropEntry.getValue().floatValue();
 
-                if (!itemValues.containsKey(droppedItem)) {
-                    float dropValue = dropEntry.getValue().floatValue();
+                ItemValuation existingDrop = itemValues.get(droppedItem);
+
+                if (existingDrop != null) {
+                    if (existingDrop.isConfigOverride()) {
+                        itemValues.put(droppedItem, existingDrop.withCalculatedValue(dropValue));
+                    }
+                } else {
                     itemValues.put(droppedItem, new ItemValuation(dropValue, 0, techLevel, false));
                 }
             }
@@ -227,19 +242,28 @@ public class ValuationEngine {
             int newDepth = maxIngredientDepth + 1;
 
             ItemValuation existingValuation = itemValues.get(resultItem);
-            boolean shouldUpdate = false;
+            boolean shouldUpdateActive = false;
+            boolean shouldUpdateShadow = false;
 
             if (existingValuation == null) {
-                shouldUpdate = true;
+                shouldUpdateActive = true;
             } else {
-                if (finalValue < existingValuation.value()) {
-                    shouldUpdate = true;
+                if (existingValuation.isConfigOverride()) {
+                    // Update shadow math if it's uninitialized, or we found a cheaper recipe path
+                    if (existingValuation.calculatedValue() == 0.0f || finalValue < existingValuation.calculatedValue()) {
+                        shouldUpdateShadow = true;
+                    }
+                } else if (finalValue < existingValuation.value()) {
+                    shouldUpdateActive = true;
                 } else if (!existingValuation.isBulkFarmable() && isRecipeBulkFarmable) {
-                    shouldUpdate = true;
+                    shouldUpdateActive = true;
                 }
             }
 
-            if (shouldUpdate) {
+            if (shouldUpdateShadow) {
+                itemValues.put(resultItem, existingValuation.withCalculatedValue(finalValue));
+                return true; // Return true so subsequent recipes using the shadow value also update
+            } else if (shouldUpdateActive) {
                 itemValues.put(resultItem, new ItemValuation(finalValue, newDepth, recipeTechLevel, isRecipeBulkFarmable));
                 return true;
             }
@@ -295,5 +319,33 @@ public class ValuationEngine {
         }
 
         return resolved ? new ItemValuation(cheapestValue, bestDepth, bestTechLevel, bestIsBulkFarmable) : null;
+    }
+
+    private void logConfigDiscrepancies() {
+        if (!LOGGER.isDebugEnabled()) return;
+
+        LOGGER.debug("=== Sweet Business: Config Override Audit ===");
+        itemValues.entrySet().stream()
+                // REMOVED the > 0.0f check so we see ALL overrides
+                .filter(entry -> entry.getValue().isConfigOverride())
+                .sorted((e1, e2) -> {
+                    String name1 = BuiltInRegistries.ITEM.getKey(e1.getKey()).toString();
+                    String name2 = BuiltInRegistries.ITEM.getKey(e2.getKey()).toString();
+                    return name1.compareTo(name2);
+                })
+                .forEach(entry -> {
+                    String itemName = BuiltInRegistries.ITEM.getKey(entry.getKey()).toString();
+                    ItemValuation valuation = entry.getValue();
+
+                    // NEW: Show if the engine is completely blind to this item
+                    String mathStr = valuation.calculatedValue() > 0.0f ?
+                            String.format("%.2f", valuation.calculatedValue()) : "BLIND SPOT (No Math)";
+
+                    LOGGER.debug("Item: {} | Config Value: {} | Engine Math: {}",
+                            itemName,
+                            String.format("%.2f", valuation.value()),
+                            mathStr);
+                });
+        LOGGER.debug("=============================================");
     }
 }
