@@ -52,6 +52,17 @@ public class ValuationEngine {
         int totalItems = net.minecraft.core.registries.BuiltInRegistries.ITEM.size();
         int unknownItems = totalItems - itemValues.size();
 
+        int industrialItems = 0;
+        int manualItems = 0;
+
+        for (ItemValuation valuation : itemValues.values()) {
+            if (valuation.isBulkFarmable()) {
+                industrialItems++;
+            } else {
+                manualItems++;
+            }
+        }
+
         int unresolvedRecipes = 0;
         for (RecipeHolder<?> holder : server.getRecipeManager().getRecipes()) {
             ItemStack resultStack = holder.value().getResultItem(registryAccess);
@@ -61,7 +72,9 @@ public class ValuationEngine {
         }
 
         LOGGER.info("Economy valuation completed in {} iterations.", iteration);
-        LOGGER.info("Mapped Items: {} | Unknown Items: {}", itemValues.size(), unknownItems);
+        LOGGER.info("Mapped Items: {} (Industrial: {}, Manual: {}) | Unknown Items: {}",
+                itemValues.size(), industrialItems, manualItems, unknownItems);
+
         if (unresolvedRecipes > 0) {
             LOGGER.warn("Unresolved Recipes: {} (Missing base materials or recursive loop)", unresolvedRecipes);
         } else {
@@ -100,7 +113,7 @@ public class ValuationEngine {
             Set<Item> resolvedItems = isTag ? TagResolver.resolveTag(identifier) : TagResolver.resolveItem(identifier);
 
             for (Item item : resolvedItems) {
-                itemValues.put(item, new ItemValuation(baseValue, 0, techLevel));
+                itemValues.put(item, new ItemValuation(baseValue, 0, techLevel, false));
             }
         }
     }
@@ -132,6 +145,7 @@ public class ValuationEngine {
         int maxIngredientDepth = 0;
         int recipeTechLevel = Constants.BASE_TECH_LEVEL;
         boolean canResolve = true;
+        boolean isRecipeBulkFarmable = true;
 
         for (Ingredient ingredient : holder.value().getIngredients()) {
             if (ingredient.isEmpty()) continue;
@@ -140,12 +154,16 @@ public class ValuationEngine {
 
             if (cheapest == null) {
                 canResolve = false;
-                break; // Stop evaluating this recipe; a base ingredient is missing
+                break;
             }
 
             totalValue += cheapest.value();
             recipeTechLevel = Math.max(recipeTechLevel, cheapest.techLevel());
             maxIngredientDepth = Math.max(maxIngredientDepth, cheapest.depth());
+
+            if (!cheapest.isBulkFarmable()) {
+                isRecipeBulkFarmable = false;
+            }
         }
 
         if (canResolve) {
@@ -153,8 +171,20 @@ public class ValuationEngine {
             int newDepth = maxIngredientDepth + 1;
 
             ItemValuation existingValuation = itemValues.get(resultItem);
-            if (existingValuation == null || finalValue < existingValuation.value()) {
-                itemValues.put(resultItem, new ItemValuation(finalValue, newDepth, recipeTechLevel));
+            boolean shouldUpdate = false;
+
+            if (existingValuation == null) {
+                shouldUpdate = true;
+            } else {
+                if (finalValue < existingValuation.value()) {
+                    shouldUpdate = true;
+                } else if (!existingValuation.isBulkFarmable() && isRecipeBulkFarmable) {
+                    shouldUpdate = true;
+                }
+            }
+
+            if (shouldUpdate) {
+                itemValues.put(resultItem, new ItemValuation(finalValue, newDepth, recipeTechLevel, isRecipeBulkFarmable));
                 return true;
             }
         }
@@ -166,6 +196,7 @@ public class ValuationEngine {
         float cheapestValue = Float.MAX_VALUE;
         int bestDepth = 0;
         int bestTechLevel = 0;
+        boolean bestIsBulkFarmable = false;
         boolean resolved = false;
 
         for (ItemStack stack : ingredient.getItems()) {
@@ -186,15 +217,27 @@ public class ValuationEngine {
                     }
                 }
 
-                if (currentCost < cheapestValue) {
+                boolean shouldUpdate = false;
+
+                if (!resolved) {
+                    shouldUpdate = true;
+                } else if (currentCost < cheapestValue) {
+                    shouldUpdate = true;
+                } else if (!bestIsBulkFarmable && valuation.isBulkFarmable()) {
+                    // Override: It might cost slightly more, but this variant is automated
+                    shouldUpdate = true;
+                }
+
+                if (shouldUpdate) {
                     cheapestValue = currentCost;
                     bestDepth = valuation.depth();
                     bestTechLevel = valuation.techLevel();
+                    bestIsBulkFarmable = valuation.isBulkFarmable();
                     resolved = true;
                 }
             }
         }
 
-        return resolved ? new ItemValuation(cheapestValue, bestDepth, bestTechLevel) : null;
+        return resolved ? new ItemValuation(cheapestValue, bestDepth, bestTechLevel, bestIsBulkFarmable) : null;
     }
 }

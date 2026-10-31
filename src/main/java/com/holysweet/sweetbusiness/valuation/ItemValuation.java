@@ -9,8 +9,9 @@ import com.holysweet.sweetbusiness.util.Constants;
  * @param depth     The longest chain of consecutive crafting steps from a raw material.
  * @param techLevel The highest tier of machinery/recipe type required in its lineage.
  */
-public record ItemValuation(float value, int depth, int techLevel) {
+public record ItemValuation(float value, int depth, int techLevel, boolean isBulkFarmable) {
 
+    private static final boolean Boolean = false;
     /**
      * A constant representing an item that has not yet been calculated
      * or cannot be crafted/gathered. Use this to avoid null checks.
@@ -18,7 +19,8 @@ public record ItemValuation(float value, int depth, int techLevel) {
     public static final ItemValuation UNKNOWN = new ItemValuation(
             Constants.UNKNOWN_VALUE,
             Constants.UNKNOWN_DEPTH,
-            Constants.UNKNOWN_TECH_LEVEL
+            Constants.UNKNOWN_TECH_LEVEL,
+            Boolean
     );
 
     /**
