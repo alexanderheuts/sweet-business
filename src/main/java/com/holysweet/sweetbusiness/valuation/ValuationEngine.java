@@ -4,11 +4,13 @@ import com.holysweet.sweetbusiness.config.Config;
 import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.TagResolver;
 import com.holysweet.sweetbusiness.util.TierResolver;
+import com.holysweet.sweetbusiness.valuation.discovery.BlockDropDiscoverer;
 import com.holysweet.sweetbusiness.valuation.discovery.WorldGenVolumeDiscoverer;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.block.Block;
@@ -132,35 +134,43 @@ public class ValuationEngine {
      * and parses their Loot Tables to price the actual drops.
      */
     private void evaluateBlockDrops(MinecraftServer server) {
-        // 1. Discover the raw volumes from worldgen datapacks
         Map<Block, Double> oreVolumes = WorldGenVolumeDiscoverer.discoverOreVolumes(server);
-
-        // 2. Convert physical volumes into macroeconomic block values
         Map<Block, Double> blockValues = ChunkStandardEvaluator.calculateAnchorValues(oreVolumes);
+
+        net.minecraft.server.level.ServerLevel overworld = server.overworld();
 
         for (Map.Entry<Block, Double> entry : blockValues.entrySet()) {
             Block block = entry.getKey();
             double blockValue = entry.getValue();
+            int techLevel = TierResolver.getBlockTechLevel(block.defaultBlockState());
 
-            // 3. Incorporate the block itself into the item list as a manual anchor
+            // 1. Incorporate the block itself into the item list as a manual anchor
             Item blockItem = block.asItem();
-            if (blockItem != net.minecraft.world.item.Items.AIR) {
-                // CRITICAL: Respect manual overrides from config (seedAnchors)
+            if (blockItem != Items.AIR) {
                 if (!itemValues.containsKey(blockItem)) {
-                    // We need the tier to properly classify the item's baseline tech
-                    int techLevel = TierResolver.getBlockTechLevel(block.defaultBlockState());
-
-                    // Register as manual (isBulkFarmable = false)
                     itemValues.put(blockItem, new ItemValuation((float) blockValue, 0, techLevel, false));
                 }
             }
 
-            // Safety catch for empty loot tables
             if (block.getLootTable() == BuiltInLootTables.EMPTY) {
                 continue;
             }
 
-            // TODO: LootTableSimulator.simulateDrops(server, block)
+            // 2. Discover raw drops using Monte Carlo simulation
+            Map<Item, Double> rawDrops = BlockDropDiscoverer.getAverageDrops(overworld, block);
+
+            // 3. Evaluate the economic values of those drops
+            Map<Item, Double> evaluatedDrops = BlockDropEvaluator.evaluateDropValues(blockValue, rawDrops);
+
+            // 4. Safely store the results, respecting manual Config overrides
+            for (Map.Entry<Item, Double> dropEntry : evaluatedDrops.entrySet()) {
+                Item droppedItem = dropEntry.getKey();
+
+                if (!itemValues.containsKey(droppedItem)) {
+                    float dropValue = dropEntry.getValue().floatValue();
+                    itemValues.put(droppedItem, new ItemValuation(dropValue, 0, techLevel, false));
+                }
+            }
         }
     }
 
