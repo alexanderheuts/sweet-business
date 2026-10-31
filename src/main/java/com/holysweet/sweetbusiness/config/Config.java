@@ -21,22 +21,15 @@ public class Config {
                 .defineList("baseItems",
                         () -> List.of(
                                 // Earth & Minerals
-                                "minecraft:clay_ball=0.1",
-                                "minecraft:flint=0.1",
-                                "minecraft:gravel=0.1",
                                 "minecraft:obsidian=0.5",
                                 "minecraft:amethyst_shard=1.0;2",
-                                "minecraft:diamond=3.0;2",
                                 "minecraft:snowball=0.1",
                                 "minecraft:glowstone_dust=0.5;2",
-                                "minecraft:ancient_debris=5.0;4",
 
                                 // Dimension Terrain
                                 "minecraft:netherrack=0.1",
                                 "minecraft:end_stone=0.1",
-                                "minecraft:soul_sand=0.1",
                                 "minecraft:soul_soil=0.1",
-                                "minecraft:blackstone=0.1",
                                 "minecraft:basalt=0.1",
 
                                 // Agriculture & Forage
@@ -92,17 +85,7 @@ public class Config {
                 .defineList("baseTags",
                         () -> List.of(
                                 "c:cobblestones=0.1",
-                                "minecraft:dirt=0.1",
-                                "minecraft:sand=0.1",
-                                "minecraft:logs=0.1",
-                                "c:dyes=0.1",
-                                "c:ores=1.0",
-                                "c:raw_materials=1.0",
-                                "c:dusts/redstone=1.0",
-                                "c:gems/lapis=1.0",
-                                "c:gems/quartz=1.0",
-                                "c:gems/coal=1.0",
-                                "c:gems/emerald=3.0;2"
+                                "minecraft:logs=0.1"
                         ),
                         () -> "",
                         Config::validateAnchorEntry);
