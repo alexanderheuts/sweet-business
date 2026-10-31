@@ -3,7 +3,7 @@ package com.holysweet.sweetbusiness.util;
 public final class Constants {
 
     // Valuation Engine Defaults
-    public static final int ENGINE_MAX_ITERATIONS = 10;
+    public static final int ENGINE_MAX_ITERATIONS = 25;
 
     // Default fallback values for un-calculatable states
     public static final float UNKNOWN_VALUE = -1.0f;
