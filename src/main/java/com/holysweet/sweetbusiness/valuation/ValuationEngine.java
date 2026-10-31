@@ -3,12 +3,16 @@ package com.holysweet.sweetbusiness.valuation;
 import com.holysweet.sweetbusiness.config.Config;
 import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.TagResolver;
+import com.holysweet.sweetbusiness.util.TierResolver;
+import com.holysweet.sweetbusiness.valuation.discovery.WorldGenVolumeDiscoverer;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +48,12 @@ public class ValuationEngine {
      */
     public void calculateEconomy(MinecraftServer server) {
         itemValues.clear();
+
+        // First set configured values
         seedAnchors();
+
+        // Handle block drops as initial seed (i.e. redstone ore -> redstone)
+        evaluateBlockDrops(server);
 
         RegistryAccess registryAccess = server.registryAccess();
         int iteration = runValuationLoop(server, registryAccess);
@@ -115,6 +124,43 @@ public class ValuationEngine {
             for (Item item : resolvedItems) {
                 itemValues.put(item, new ItemValuation(baseValue, 0, techLevel, false));
             }
+        }
+    }
+
+    /**
+     * Takes the finalized block values, registers the blocks themselves,
+     * and parses their Loot Tables to price the actual drops.
+     */
+    private void evaluateBlockDrops(MinecraftServer server) {
+        // 1. Discover the raw volumes from worldgen datapacks
+        Map<Block, Double> oreVolumes = WorldGenVolumeDiscoverer.discoverOreVolumes(server);
+
+        // 2. Convert physical volumes into macroeconomic block values
+        Map<Block, Double> blockValues = ChunkStandardEvaluator.calculateAnchorValues(oreVolumes);
+
+        for (Map.Entry<Block, Double> entry : blockValues.entrySet()) {
+            Block block = entry.getKey();
+            double blockValue = entry.getValue();
+
+            // 3. Incorporate the block itself into the item list as a manual anchor
+            Item blockItem = block.asItem();
+            if (blockItem != net.minecraft.world.item.Items.AIR) {
+                // CRITICAL: Respect manual overrides from config (seedAnchors)
+                if (!itemValues.containsKey(blockItem)) {
+                    // We need the tier to properly classify the item's baseline tech
+                    int techLevel = TierResolver.getBlockTechLevel(block.defaultBlockState());
+
+                    // Register as manual (isBulkFarmable = false)
+                    itemValues.put(blockItem, new ItemValuation((float) blockValue, 0, techLevel, false));
+                }
+            }
+
+            // Safety catch for empty loot tables
+            if (block.getLootTable() == BuiltInLootTables.EMPTY) {
+                continue;
+            }
+
+            // TODO: LootTableSimulator.simulateDrops(server, block)
         }
     }
 
