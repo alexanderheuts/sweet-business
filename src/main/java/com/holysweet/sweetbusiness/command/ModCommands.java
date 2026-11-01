@@ -13,6 +13,7 @@ public class ModCommands {
                 .then(ValueCommand.register(buildContext))
                 .then(TraceCommand.register(buildContext))
                 .then(RecipeTypesCommand.register())
+                .then(LedgerCommand.register())
         );
     }
 }

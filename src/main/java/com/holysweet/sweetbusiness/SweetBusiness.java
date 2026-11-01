@@ -2,6 +2,7 @@ package com.holysweet.sweetbusiness;
 
 import com.holysweet.sweetbusiness.config.Config;
 import com.holysweet.sweetbusiness.event.ServerEventHandler;
+import com.holysweet.sweetbusiness.event.LedgerEventHandler;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -17,6 +18,7 @@ public class SweetBusiness {
     public SweetBusiness(IEventBus modEventBus, ModContainer modContainer) {
 
         NeoForge.EVENT_BUS.register(new ServerEventHandler());
+        NeoForge.EVENT_BUS.register(new LedgerEventHandler());
 
         modContainer.registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC);
 
