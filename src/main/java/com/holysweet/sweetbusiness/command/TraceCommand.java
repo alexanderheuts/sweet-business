@@ -34,26 +34,22 @@ public class TraceCommand {
         String itemName = BuiltInRegistries.ITEM.getKey(targetItem).getPath();
 
         ItemValuation valuation = ValuationEngine.getInstance().getValuation(targetItem);
-
-        if (valuation == ItemValuation.UNKNOWN) {
-            send(context, "§cNo valuation data found for: " + itemName);
-            return 0;
-        }
+        boolean isTargetUnknown = (valuation == ItemValuation.UNKNOWN);
 
         printHeader(context, itemName, valuation);
 
-        if (valuation.depth() == 0) {
+        if (!isTargetUnknown && valuation.depth() == 0) {
             printOrigin(context, valuation);
-            return Command.SINGLE_SUCCESS;
+        } else {
+            traceRecipes(context, targetItem, valuation);
         }
 
-        traceRecipes(context, targetItem, valuation.value());
-
         send(context, "§8§m====================================");
+
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void traceRecipes(CommandContext<CommandSourceStack> context, Item targetItem, double targetValue) {
+    private static void traceRecipes(CommandContext<CommandSourceStack> context, Item targetItem, ItemValuation targetValuation) {
         var registryAccess = context.getSource().getServer().registryAccess();
         Iterable<RecipeHolder<?>> allRecipes = context.getSource().getServer().getRecipeManager().getRecipes();
 
@@ -64,26 +60,35 @@ public class TraceCommand {
             if (resultStack.isEmpty() || resultStack.getItem() != targetItem) continue;
 
             foundRecipe = true;
-            evaluateAndPrintRecipe(context, holder, resultStack.getCount(), targetValue);
+            evaluateAndPrintRecipe(context, holder, resultStack.getCount(), targetValuation);
         }
 
         if (!foundRecipe) {
-            send(context, "§cWarning: Depth is > 0 but no recipes produce this item!");
+            send(context, "§cNo standard recipes found that produce this item.");
         }
     }
 
-    private static void evaluateAndPrintRecipe(CommandContext<CommandSourceStack> context, RecipeHolder<?> holder, int yield, double targetValue) {
+    private static void evaluateAndPrintRecipe(CommandContext<CommandSourceStack> context, RecipeHolder<?> holder, int yield, ItemValuation targetValuation) {
         Map<String, Integer> ingredientCounts = new LinkedHashMap<>();
         double totalCost = calculateCostAndGroupIngredients(holder.value().getIngredients(), ingredientCounts);
 
-        double unitCost = yield > 0 ? totalCost / yield : 0;
-        boolean isWinner = Math.abs(unitCost - targetValue) < 0.0001;
+        // Handle empty ingredient recipes (like Smithing)
+        if (ingredientCounts.isEmpty()) {
+            send(context, "§8- §f" + holder.id().getPath() + " §7(Yield " + yield + ")");
+            send(context, "    §7Cost: §cUNRESOLVABLE (No standard ingredients)");
+            return;
+        }
 
-        printRecipeDetails(context, holder.id().getPath(), yield, unitCost, isWinner, ingredientCounts);
+        boolean isUnresolvable = (totalCost < 0); // -1.0 means missing ingredients
+        double unitCost = (isUnresolvable || yield <= 0) ? 0 : totalCost / yield;
+        boolean isWinner = !isUnresolvable && targetValuation != ItemValuation.UNKNOWN && Math.abs(unitCost - targetValuation.value()) < 0.0001;
+
+        printRecipeDetails(context, holder.id().getPath(), yield, unitCost, isWinner, ingredientCounts, isUnresolvable);
     }
 
     private static double calculateCostAndGroupIngredients(NonNullList<Ingredient> ingredients, Map<String, Integer> ingredientCounts) {
         double totalCost = 0.0;
+        boolean hasUnknown = false;
 
         for (Ingredient ingredient : ingredients) {
             if (ingredient.isEmpty()) continue;
@@ -92,17 +97,30 @@ public class TraceCommand {
             String shortName = BuiltInRegistries.ITEM.getKey(ingItem).getPath();
             ItemValuation ingVal = ValuationEngine.getInstance().getValuation(ingItem);
 
-            totalCost += (ingVal != ItemValuation.UNKNOWN) ? ingVal.value() : 0.0;
+            if (ingVal == ItemValuation.UNKNOWN) {
+                shortName += " §c(Unpriced)§7"; // Flag the missing ingredient in the formula
+                hasUnknown = true;
+            } else {
+                totalCost += ingVal.value();
+            }
+
             ingredientCounts.put(shortName, ingredientCounts.getOrDefault(shortName, 0) + 1);
         }
 
-        return totalCost;
+        return hasUnknown ? -1.0 : totalCost; // Return -1.0 as a sentinel if unresolvable
     }
 
-    private static void printRecipeDetails(CommandContext<CommandSourceStack> context, String recipeId, int yield, double unitCost, boolean isWinner, Map<String, Integer> counts) {
+    private static void printRecipeDetails(CommandContext<CommandSourceStack> context, String recipeId, int yield, double unitCost, boolean isWinner, Map<String, Integer> counts, boolean isUnresolvable) {
         String prefix = isWinner ? "§a§l> §r" : "§8- §r";
-        String costColor = isWinner ? "§a" : "§e";
-        String winnerTag = isWinner ? " §a[WINNER]" : "";
+
+        String costString;
+        if (isUnresolvable) {
+            costString = "§cUNKNOWN (Missing ingredient prices)";
+        } else if (isWinner) {
+            costString = "§a" + String.format("%.5f", unitCost) + " §a[WINNER]";
+        } else {
+            costString = "§e" + String.format("%.5f", unitCost);
+        }
 
         StringBuilder formula = new StringBuilder();
         counts.forEach((name, count) -> {
@@ -111,13 +129,17 @@ public class TraceCommand {
         });
 
         send(context, prefix + "§f" + recipeId + " §7(Yield " + yield + ")");
-        send(context, "    §7Cost: " + costColor + String.format("%.5f", unitCost) + winnerTag);
+        send(context, "    §7Cost: " + costString);
         send(context, "    §7From: " + formula);
     }
 
     private static void printHeader(CommandContext<CommandSourceStack> context, String itemName, ItemValuation valuation) {
         send(context, "§8§m==========[§r §6" + itemName.toUpperCase() + " §8§m]==========");
-        send(context, "§7Final Value: §a" + String.format("%.5f", valuation.value()) + "  §7|  Depth: §b" + valuation.depth());
+        if (valuation == ItemValuation.UNKNOWN) {
+            send(context, "§7Final Value: §cUNKNOWN  §7|  Depth: §c-");
+        } else {
+            send(context, "§7Final Value: §a" + String.format("%.5f", valuation.value()) + "  §7|  Depth: §b" + valuation.depth());
+        }
     }
 
     private static void printOrigin(CommandContext<CommandSourceStack> context, ItemValuation valuation) {

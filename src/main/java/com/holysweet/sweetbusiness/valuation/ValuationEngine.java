@@ -215,15 +215,18 @@ public class ValuationEngine {
         float totalValue = 0;
         int maxIngredientDepth = 0;
         int recipeTechLevel = Constants.BASE_TECH_LEVEL;
-        boolean canResolve = true;
         boolean isRecipeBulkFarmable = true;
+
+        // Efficiently assume true until proven false
+        boolean canResolve = true;
 
         for (Ingredient ingredient : holder.value().getIngredients()) {
             if (ingredient.isEmpty()) continue;
 
             ItemValuation cheapest = findCheapestIngredient(ingredient);
 
-            if (cheapest == null) {
+            // Short-circuit abort on the first unpriced/missing ingredient
+            if (cheapest == null || cheapest.value() <= 0.00001f) {
                 canResolve = false;
                 break;
             }
@@ -237,36 +240,42 @@ public class ValuationEngine {
             }
         }
 
-        if (canResolve) {
-            float finalValue = (totalValue * Constants.DEFAULT_RECIPE_MULTIPLIER) / resultStack.getCount();
-            int newDepth = maxIngredientDepth + 1;
+        // If it can't resolve OR totalValue is still 0, the recipe had no valid ingredient path.
+        if (!canResolve || totalValue <= 0.00001f) {
+            return false;
+        }
 
-            ItemValuation existingValuation = itemValues.get(resultItem);
-            boolean shouldUpdateActive = false;
-            boolean shouldUpdateShadow = false;
+        float finalValue = (totalValue * Constants.DEFAULT_RECIPE_MULTIPLIER) / resultStack.getCount();
+        int newDepth = maxIngredientDepth + 1;
 
-            if (existingValuation == null) {
-                shouldUpdateActive = true;
-            } else {
-                if (existingValuation.isConfigOverride()) {
-                    // Update shadow math if it's uninitialized, or we found a cheaper recipe path
-                    if (existingValuation.calculatedValue() == 0.0f || finalValue < existingValuation.calculatedValue()) {
-                        shouldUpdateShadow = true;
-                    }
-                } else if (finalValue < existingValuation.value()) {
-                    shouldUpdateActive = true;
-                } else if (!existingValuation.isBulkFarmable() && isRecipeBulkFarmable) {
-                    shouldUpdateActive = true;
+        ItemValuation existingValuation = itemValues.get(resultItem);
+        boolean shouldUpdateActive = false;
+        boolean shouldUpdateShadow = false;
+
+        // Float math epsilon to prevent infinite depth flip-flopping in loops
+        float epsilon = 0.00001f;
+
+        if (existingValuation == null) {
+            shouldUpdateActive = true;
+        } else {
+            if (existingValuation.isConfigOverride()) {
+                // Update shadow math if it's uninitialized, or we found a strictly cheaper recipe path
+                if (existingValuation.calculatedValue() == 0.0f || finalValue < existingValuation.calculatedValue() - epsilon) {
+                    shouldUpdateShadow = true;
                 }
+            } else if (finalValue < existingValuation.value() - epsilon) {
+                shouldUpdateActive = true;
+            } else if (!existingValuation.isBulkFarmable() && isRecipeBulkFarmable) {
+                shouldUpdateActive = true;
             }
+        }
 
-            if (shouldUpdateShadow) {
-                itemValues.put(resultItem, existingValuation.withCalculatedValue(finalValue));
-                return true; // Return true so subsequent recipes using the shadow value also update
-            } else if (shouldUpdateActive) {
-                itemValues.put(resultItem, new ItemValuation(finalValue, newDepth, recipeTechLevel, isRecipeBulkFarmable));
-                return true;
-            }
+        if (shouldUpdateShadow) {
+            itemValues.put(resultItem, existingValuation.withCalculatedValue(finalValue));
+            return true; // Return true so subsequent recipes using the shadow value also update
+        } else if (shouldUpdateActive) {
+            itemValues.put(resultItem, new ItemValuation(finalValue, newDepth, recipeTechLevel, isRecipeBulkFarmable));
+            return true;
         }
 
         return false;
