@@ -12,6 +12,7 @@ public class ModCommands {
         dispatcher.register(Commands.literal("sb")
                 .then(ValueCommand.register(buildContext))
                 .then(TraceCommand.register(buildContext))
+                .then(RecipeTypesCommand.register())
         );
     }
 }

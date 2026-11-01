@@ -51,6 +51,10 @@ public class ValuationEngine {
         return itemValues.getOrDefault(item, ItemValuation.UNKNOWN);
     }
 
+    public Map<RecipeType<?>, RecipeTypeDiscoverer.RecipeTypeProperties> getProcessingRules() {
+        return Map.copyOf(processingRules);
+    }
+
     /**
      * Executes the full economy discovery and calculation process.
      */
