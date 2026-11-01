@@ -1,6 +1,7 @@
 package com.holysweet.sweetbusiness.event;
 
 import com.holysweet.sweetbusiness.command.ModCommands;
+import com.holysweet.sweetbusiness.progression.CraftableSetManager;
 import com.holysweet.sweetbusiness.recipe.RecipeIndex;
 import com.holysweet.sweetbusiness.valuation.ValuationEngine;
 import net.minecraft.server.MinecraftServer;
@@ -26,11 +27,13 @@ public class ServerEventHandler {
 
     private static void rebuildRecipeData(MinecraftServer server) {
         RecipeIndex.rebuild(server.getRecipeManager());
+        CraftableSetManager.getInstance().invalidateAll(server);
         ValuationEngine.getInstance().calculateEconomy(server);
     }
 
     @SubscribeEvent
     public void onServerStopped(ServerStoppedEvent event) {
+        CraftableSetManager.getInstance().clear();
         RecipeIndex.clear();
     }
 

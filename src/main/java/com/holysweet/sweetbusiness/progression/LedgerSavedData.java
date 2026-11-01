@@ -39,6 +39,10 @@ public final class LedgerSavedData extends SavedData {
         return true;
     }
 
+    void markLedgersDirty() {
+        ledgers.values().forEach(ItemLedger::markDirty);
+    }
+
     private static LedgerSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         LedgerSavedData data = new LedgerSavedData();
         ListTag savedLedgers = tag.getList("ledgers", Tag.TAG_COMPOUND);

@@ -42,6 +42,10 @@ public final class ItemLedger {
         dirty = false;
     }
 
+    void markDirty() {
+        dirty = true;
+    }
+
     boolean discover(ResourceLocation itemId) {
         if (!discoveredItems.add(itemId)) return false;
 
