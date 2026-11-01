@@ -5,6 +5,7 @@ import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.TagResolver;
 import com.holysweet.sweetbusiness.util.TierResolver;
 import com.holysweet.sweetbusiness.valuation.discovery.BlockDropDiscoverer;
+import com.holysweet.sweetbusiness.valuation.discovery.RecipeTypeDiscoverer;
 import com.holysweet.sweetbusiness.valuation.discovery.WorldGenVolumeDiscoverer;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -14,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 import org.slf4j.Logger;
@@ -30,6 +32,9 @@ public class ValuationEngine {
     private static final ValuationEngine INSTANCE = new ValuationEngine();
 
     private final Map<Item, ItemValuation> itemValues = new HashMap<>();
+
+    // In-memory cache of resolved RecipeTypes passed from the discoverer
+    private Map<RecipeType<?>, RecipeTypeDiscoverer.RecipeTypeProperties> processingRules = new HashMap<>();
 
     private ValuationEngine() {
         // Enforce Singleton
@@ -51,6 +56,9 @@ public class ValuationEngine {
      */
     public void calculateEconomy(MinecraftServer server) {
         itemValues.clear();
+
+        // Load processing tiers and manual flags mapped from Config
+        this.processingRules = RecipeTypeDiscoverer.discoverRecipeTypes(server);
 
         // First set configured values
         seedAnchors();
@@ -127,16 +135,12 @@ public class ValuationEngine {
             Set<Item> resolvedItems = isTag ? TagResolver.resolveTag(identifier) : TagResolver.resolveItem(identifier);
 
             for (Item item : resolvedItems) {
-                // Config values are Override values
+                // Config values are Override values. Your ItemValuation.createOverride defaults isBulkFarmable to false.
                 itemValues.put(item, ItemValuation.createOverride(baseValue, techLevel));
             }
         }
     }
 
-    /**
-     * Takes the finalized block values, registers the blocks themselves,
-     * and parses their Loot Tables to price the actual drops.
-     */
     private void evaluateBlockDrops(MinecraftServer server) {
         Map<Block, Double> oreVolumes = WorldGenVolumeDiscoverer.discoverOreVolumes(server);
         Map<Block, Double> blockValues = ChunkStandardEvaluator.calculateAnchorValues(oreVolumes);
@@ -145,7 +149,7 @@ public class ValuationEngine {
 
         for (Map.Entry<Block, Double> entry : blockValues.entrySet()) {
             Block block = entry.getKey();
-            double blockValue = entry.getValue();
+            float blockValue = entry.getValue().floatValue();
             int techLevel = TierResolver.getBlockTechLevel(block.defaultBlockState());
 
             // 1. Incorporate the block itself into the item list as a manual anchor
@@ -154,10 +158,11 @@ public class ValuationEngine {
                 ItemValuation existingBlock = itemValues.get(blockItem);
                 if (existingBlock != null) {
                     if (existingBlock.isConfigOverride()) {
-                        itemValues.put(blockItem, existingBlock.withCalculatedValue((float) blockValue));
+                        itemValues.put(blockItem, existingBlock.withCalculatedValue(blockValue));
                     }
                 } else {
-                    itemValues.put(blockItem, new ItemValuation((float) blockValue, 0, techLevel, false));
+                    // Mined blocks are inherently manual to gather (isBulkFarmable = false)
+                    itemValues.put(blockItem, new ItemValuation(blockValue, 0, techLevel, false));
                 }
             }
 
@@ -169,7 +174,7 @@ public class ValuationEngine {
             Map<Item, Double> rawDrops = BlockDropDiscoverer.getAverageDrops(overworld, block);
 
             // 3. Evaluate the economic values of those drops
-            Map<Item, Double> evaluatedDrops = BlockDropEvaluator.evaluateDropValues(blockValue, rawDrops);
+            Map<Item, Double> evaluatedDrops = BlockDropEvaluator.evaluateDropValues(entry.getValue(), rawDrops);
 
             // 4. Safely store the results, updating shadow values for overrides
             for (Map.Entry<Item, Double> dropEntry : evaluatedDrops.entrySet()) {
@@ -211,13 +216,17 @@ public class ValuationEngine {
         if (resultStack.isEmpty()) return false;
 
         Item resultItem = resultStack.getItem();
+        RecipeType<?> type = holder.value().getType();
 
-        float totalValue = 0;
+        // 1. Resolve processing properties
+        var defaultProps = new RecipeTypeDiscoverer.RecipeTypeProperties(1, RecipeTypeDiscoverer.TierSource.GLOBAL_DEFAULT, "unknown", false);
+        var typeProps = processingRules.getOrDefault(type, defaultProps);
+
+        float totalValue = 0.0f;
         int maxIngredientDepth = 0;
-        int recipeTechLevel = Constants.BASE_TECH_LEVEL;
-        boolean isRecipeBulkFarmable = true;
+        int recipeTechLevel = typeProps.techTier(); // Start at the machine's tier
+        boolean isRecipeBulkFarmable = !typeProps.isManual(); // If the machine is manual, it is NOT bulk farmable
 
-        // Efficiently assume true until proven false
         boolean canResolve = true;
 
         for (Ingredient ingredient : holder.value().getIngredients()) {
@@ -236,7 +245,7 @@ public class ValuationEngine {
             maxIngredientDepth = Math.max(maxIngredientDepth, cheapest.depth());
 
             if (!cheapest.isBulkFarmable()) {
-                isRecipeBulkFarmable = false;
+                isRecipeBulkFarmable = false; // Taint the entire product as non-bulk if any ingredient was manual
             }
         }
 
@@ -266,6 +275,7 @@ public class ValuationEngine {
             } else if (finalValue < existingValuation.value() - epsilon) {
                 shouldUpdateActive = true;
             } else if (!existingValuation.isBulkFarmable() && isRecipeBulkFarmable) {
+                // Override: The cost might be identical or slightly higher, but this new path is fully automated
                 shouldUpdateActive = true;
             }
         }
@@ -285,7 +295,7 @@ public class ValuationEngine {
         float cheapestValue = Float.MAX_VALUE;
         int bestDepth = 0;
         int bestTechLevel = 0;
-        boolean bestIsBulkFarmable = false;
+        boolean bestIsBulkFarmable = false; // Assume worst case initially
         boolean resolved = false;
 
         for (ItemStack stack : ingredient.getItems()) {
@@ -313,7 +323,7 @@ public class ValuationEngine {
                 } else if (currentCost < cheapestValue) {
                     shouldUpdate = true;
                 } else if (!bestIsBulkFarmable && valuation.isBulkFarmable()) {
-                    // Override: It might cost slightly more, but this variant is automated
+                    // Override: The cost might be slightly higher, but this variant is fully automated
                     shouldUpdate = true;
                 }
 
@@ -333,9 +343,9 @@ public class ValuationEngine {
     private void logConfigDiscrepancies() {
         if (!LOGGER.isDebugEnabled()) return;
 
+        // 1. Audit Item Valuations
         LOGGER.debug("=== Sweet Business: Config Override Audit ===");
         itemValues.entrySet().stream()
-                // REMOVED the > 0.0f check so we see ALL overrides
                 .filter(entry -> entry.getValue().isConfigOverride())
                 .sorted((e1, e2) -> {
                     String name1 = BuiltInRegistries.ITEM.getKey(e1.getKey()).toString();
@@ -355,5 +365,29 @@ public class ValuationEngine {
                             mathStr);
                 });
         LOGGER.debug("=============================================");
+
+        // 2. Audit Recipe Type Rules
+        LOGGER.debug("=== Sweet Business: Recipe Type Derivation Audit ===");
+        processingRules.entrySet().stream()
+                .filter(entry -> {
+                    RecipeTypeDiscoverer.TierSource source = entry.getValue().source();
+                    return source == RecipeTypeDiscoverer.TierSource.NAMESPACE || source == RecipeTypeDiscoverer.TierSource.GLOBAL_DEFAULT;
+                })
+                .sorted((e1, e2) -> {
+                    String name1 = String.valueOf(BuiltInRegistries.RECIPE_TYPE.getKey(e1.getKey()));
+                    String name2 = String.valueOf(BuiltInRegistries.RECIPE_TYPE.getKey(e2.getKey()));
+                    return name1.compareTo(name2);
+                })
+                .forEach(entry -> {
+                    String typeName = String.valueOf(BuiltInRegistries.RECIPE_TYPE.getKey(entry.getKey()));
+                    RecipeTypeDiscoverer.RecipeTypeProperties props = entry.getValue();
+
+                    LOGGER.debug("Recipe Type: {} | Tier: {} | Source: {} | Matched Rule: {}",
+                            typeName,
+                            props.techTier(),
+                            props.source().name(),
+                            props.matchedRule());
+                });
+        LOGGER.debug("=====================================================");
     }
 }
