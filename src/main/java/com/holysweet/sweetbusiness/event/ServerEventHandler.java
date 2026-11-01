@@ -3,6 +3,7 @@ package com.holysweet.sweetbusiness.event;
 import com.holysweet.sweetbusiness.command.ModCommands;
 import com.holysweet.sweetbusiness.recipe.RecipeIndex;
 import com.holysweet.sweetbusiness.valuation.ValuationEngine;
+import net.minecraft.server.MinecraftServer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
@@ -13,15 +14,19 @@ public class ServerEventHandler {
 
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
-        RecipeIndex.rebuild(event.getServer().getRecipeManager());
-        ValuationEngine.getInstance().calculateEconomy(event.getServer());
+        rebuildRecipeData(event.getServer());
     }
 
     @SubscribeEvent
     public void onDatapackSync(OnDatapackSyncEvent event) {
         if (event.getPlayer() == null) {
-            RecipeIndex.rebuild(event.getPlayerList().getServer().getRecipeManager());
+            rebuildRecipeData(event.getPlayerList().getServer());
         }
+    }
+
+    private static void rebuildRecipeData(MinecraftServer server) {
+        RecipeIndex.rebuild(server.getRecipeManager());
+        ValuationEngine.getInstance().calculateEconomy(server);
     }
 
     @SubscribeEvent
