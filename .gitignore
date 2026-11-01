@@ -1,4 +1,17 @@
+### Local agent guidance ###
+/AGENTS.md
+
+### Gradle and Minecraft development ###
+/.gradle/
+/build/
+/run/
+/run-data/
+/repo/
+/src/generated/resources/.cache/
+
 ### IntelliJ IDEA ###
+/.idea/
+*.iml
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
