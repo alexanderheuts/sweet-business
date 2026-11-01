@@ -7,9 +7,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.crafting.RecipeType;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 public final class RecipeTypeDiscoverer {
 
@@ -23,11 +21,9 @@ public final class RecipeTypeDiscoverer {
 
     /**
      * Immutable data record to pass processing properties to the Evaluator.
-     * matchedRule contains the exact string that triggered the tier (e.g., "minecraft:smithing" or "create").
+     * matchedRule identifies the rule that supplied both tier and processing type.
      */
     public record RecipeTypeProperties(int techTier, TierSource source, String matchedRule, boolean isManual) {}
-
-    private record TierResult(int tier, TierSource source, String matchedRule) {}
 
     /**
      * Scans registered RecipeTypes and resolves their tech tiers and manual labor flags
@@ -38,78 +34,47 @@ public final class RecipeTypeDiscoverer {
 
         var recipeTypeRegistry = server.registryAccess().registryOrThrow(Registries.RECIPE_TYPE);
 
-        // 1. Pre-parse configuration values into fast-lookup maps
-        int globalDefaultTier = Config.GLOBAL_DEFAULT_TIER.get();
-        Map<String, Integer> namespaceTiers = parseNamespaceTiers();
-        Map<ResourceLocation, Integer> overrideTiers = parseOverrideTiers();
-        Set<ResourceLocation> manualTypes = parseManualTypes();
+        RecipeTypeProperties globalDefaults = getDefaultProperties();
+        Map<String, RecipeTypeProperties> namespaceDefaults = parseNamespaceDefaults();
+        Map<ResourceLocation, RecipeTypeProperties> overrides = parseOverrides();
 
-        // 2. Evaluate every loaded RecipeType in the registry
         for (RecipeType<?> recipeType : recipeTypeRegistry) {
             ResourceLocation typeId = recipeTypeRegistry.getKey(recipeType);
             if (typeId == null) continue;
 
-            TierResult tierResult = resolveTier(typeId, globalDefaultTier, namespaceTiers, overrideTiers);
-            boolean isManual = manualTypes.contains(typeId);
-
-            expectedProperties.put(recipeType, new RecipeTypeProperties(
-                    tierResult.tier(),
-                    tierResult.source(),
-                    tierResult.matchedRule(),
-                    isManual
-            ));
+            expectedProperties.put(recipeType, overrides.getOrDefault(typeId,
+                    namespaceDefaults.getOrDefault(typeId.getNamespace(), globalDefaults)));
         }
 
         return expectedProperties;
     }
 
-    private static Map<String, Integer> parseNamespaceTiers() {
-        Map<String, Integer> tiers = new HashMap<>();
-        for (String entry : Config.NAMESPACE_DEFAULTS.get()) {
-            String[] parts = entry.split(":");
-            if (parts.length == 2) {
-                try {
-                    tiers.put(parts[0], Integer.parseInt(parts[1]));
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-        return tiers;
+    public static RecipeTypeProperties getDefaultProperties() {
+        return new RecipeTypeProperties(Config.GLOBAL_DEFAULT_TIER.get(), TierSource.GLOBAL_DEFAULT,
+                "global_default", "manual".equals(Config.GLOBAL_DEFAULT_TYPE.get()));
     }
 
-    private static Map<ResourceLocation, Integer> parseOverrideTiers() {
-        Map<ResourceLocation, Integer> overrides = new HashMap<>();
+    private static Map<String, RecipeTypeProperties> parseNamespaceDefaults() {
+        Map<String, RecipeTypeProperties> defaults = new HashMap<>();
+        for (String entry : Config.NAMESPACE_DEFAULTS.get()) {
+            String[] parts = entry.split(":", -1);
+            defaults.put(parts[0], parseProperties(parts, 1, TierSource.NAMESPACE, parts[0]));
+        }
+        return defaults;
+    }
+
+    private static Map<ResourceLocation, RecipeTypeProperties> parseOverrides() {
+        Map<ResourceLocation, RecipeTypeProperties> overrides = new HashMap<>();
         for (String entry : Config.RECIPE_TYPE_OVERRIDES.get()) {
-            String[] parts = entry.split(":");
-            if (parts.length == 3) {
-                try {
-                    ResourceLocation id = ResourceLocation.fromNamespaceAndPath(parts[0], parts[1]);
-                    overrides.put(id, Integer.parseInt(parts[2]));
-                } catch (NumberFormatException ignored) {}
-            }
+            String[] parts = entry.split(":", -1);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath(parts[0], parts[1]);
+            overrides.put(id, parseProperties(parts, 2, TierSource.OVERRIDE, id.toString()));
         }
         return overrides;
     }
 
-    private static Set<ResourceLocation> parseManualTypes() {
-        Set<ResourceLocation> manualTypes = new HashSet<>();
-        for (String entry : Config.MANUAL_RECIPE_TYPES.get()) {
-            try {
-                manualTypes.add(ResourceLocation.parse(entry));
-            } catch (Exception ignored) {}
-        }
-        return manualTypes;
-    }
-
-    private static TierResult resolveTier(ResourceLocation id, int globalDefault, Map<String, Integer> namespaceTiers, Map<ResourceLocation, Integer> overrideTiers) {
-        if (overrideTiers.containsKey(id)) {
-            return new TierResult(overrideTiers.get(id), TierSource.OVERRIDE, id.toString());
-        }
-
-        String namespace = id.getNamespace();
-        if (namespaceTiers.containsKey(namespace)) {
-            return new TierResult(namespaceTiers.get(namespace), TierSource.NAMESPACE, namespace);
-        }
-
-        return new TierResult(globalDefault, TierSource.GLOBAL_DEFAULT, "global_default");
+    private static RecipeTypeProperties parseProperties(String[] parts, int tierIndex, TierSource source, String matchedRule) {
+        return new RecipeTypeProperties(Integer.parseInt(parts[tierIndex]), source, matchedRule,
+                "manual".equals(parts[tierIndex + 1]));
     }
 }

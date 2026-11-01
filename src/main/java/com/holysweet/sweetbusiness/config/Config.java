@@ -1,6 +1,7 @@
 package com.holysweet.sweetbusiness.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraft.resources.ResourceLocation;
 import java.util.List;
 
 public class Config {
@@ -13,9 +14,9 @@ public class Config {
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_TAGS;
 
     public static final ModConfigSpec.IntValue GLOBAL_DEFAULT_TIER;
+    public static final ModConfigSpec.ConfigValue<String> GLOBAL_DEFAULT_TYPE;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> NAMESPACE_DEFAULTS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> RECIPE_TYPE_OVERRIDES;
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> MANUAL_RECIPE_TYPES;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -118,39 +119,33 @@ public class Config {
                 .comment("The default tech tier for any recipe type not explicitly defined below.")
                 .defineInRange("globalDefaultTier", 1, 1, 10);
 
+        GLOBAL_DEFAULT_TYPE = builder
+                .comment("The default processing type: 'manual' or 'industrial'.",
+                        "Recipe type overrides take precedence over namespace defaults, then global defaults.")
+                .define("globalDefaultType", "industrial", Config::validateProcessingType);
+
         NAMESPACE_DEFAULTS = builder
-                .comment("Baseline tech tiers for entire mods.",
-                        "Format: 'modid:tier'")
+                .comment("Baseline tech tiers and processing types for entire mods.",
+                        "Format: 'modid:tier:manual' or 'modid:tier:industrial' (tier: 1-10)")
                 .defineList("namespaceDefaults",
                         () -> List.of(
-                                "minecraft:1"
+                                "minecraft:1:industrial"
                         ),
                         () -> "",
-                        Config::validateNamespaceTier);
+                        Config::validateNamespaceRule);
 
         RECIPE_TYPE_OVERRIDES = builder
-                .comment("Specific overrides for high-end or primitive machines within a mod.",
-                        "Format: 'modid:recipe_type:tier'")
+                .comment("Specific tech tier and processing type overrides within a mod.",
+                        "Format: 'modid:recipe_type:tier:manual' or 'modid:recipe_type:tier:industrial' (tier: 1-10)")
                 .defineList("recipeTypeOverrides",
                         () -> List.of(
-                                "minecraft:smithing:1"
+                                "minecraft:smithing:1:manual",
+                                "minecraft:campfire_cooking:1:manual",
+                                "minecraft:stonecutting:1:manual",
+                                "minecraft:crafting:1:manual"
                         ),
                         () -> "",
-                        Config::validateRecipeTypeTier);
-
-        MANUAL_RECIPE_TYPES = builder
-                .comment("Recipe types that require direct player interaction.",
-                        "The engine uses this to apply manual labor taxes and cap contract volumes.",
-                        "Format: 'modid:recipe_type'")
-                .defineList("manualRecipeTypes",
-                        () -> List.of(
-                                "minecraft:smithing",
-                                "minecraft:campfire_cooking",
-                                "minecraft:stonecutting",
-                                "minecraft:crafting"
-                        ),
-                        () -> "",
-                        Config::validateRecipeType);
+                        Config::validateRecipeTypeRule);
 
         builder.pop();
         SERVER_SPEC = builder.build();
@@ -175,40 +170,31 @@ public class Config {
         return false;
     }
 
-    private static boolean validateNamespaceTier(Object obj) {
-        if (obj instanceof String str) {
-            String[] parts = str.split(":");
-            if (parts.length == 2) {
-                try {
-                    Integer.parseInt(parts[1]);
-                    return true;
-                } catch (NumberFormatException e) {
-                    return false;
-                }
-            }
-        }
-        return false;
+    private static boolean validateProcessingType(Object obj) {
+        return "manual".equals(obj) || "industrial".equals(obj);
     }
 
-    private static boolean validateRecipeTypeTier(Object obj) {
-        if (obj instanceof String str) {
-            String[] parts = str.split(":");
-            if (parts.length == 3) {
-                try {
-                    Integer.parseInt(parts[2]);
-                    return true;
-                } catch (NumberFormatException e) {
-                    return false;
-                }
-            }
-        }
-        return false;
+    private static boolean validateNamespaceRule(Object obj) {
+        return validateProcessingRule(obj, 1);
     }
 
-    private static boolean validateRecipeType(Object obj) {
-        if (obj instanceof String str) {
-            return str.split(":").length == 2;
+    private static boolean validateRecipeTypeRule(Object obj) {
+        return validateProcessingRule(obj, 2);
+    }
+
+    private static boolean validateProcessingRule(Object obj, int tierIndex) {
+        if (!(obj instanceof String entry)) return false;
+
+        String[] parts = entry.split(":", -1);
+        if (parts.length != tierIndex + 2 || !validateProcessingType(parts[tierIndex + 1])) return false;
+        if (!parts[0].matches("[a-z0-9_.-]+")) return false;
+        if (tierIndex == 2 && (parts[1].isEmpty() || ResourceLocation.tryParse(parts[0] + ":" + parts[1]) == null)) return false;
+
+        try {
+            int tier = Integer.parseInt(parts[tierIndex]);
+            return tier >= 1 && tier <= 10;
+        } catch (NumberFormatException e) {
+            return false;
         }
-        return false;
     }
 }

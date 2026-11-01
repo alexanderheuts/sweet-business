@@ -223,8 +223,10 @@ public class ValuationEngine {
         RecipeType<?> type = holder.value().getType();
 
         // 1. Resolve processing properties
-        var defaultProps = new RecipeTypeDiscoverer.RecipeTypeProperties(1, RecipeTypeDiscoverer.TierSource.GLOBAL_DEFAULT, "unknown", false);
-        var typeProps = processingRules.getOrDefault(type, defaultProps);
+        var typeProps = processingRules.get(type);
+        if (typeProps == null) {
+            typeProps = RecipeTypeDiscoverer.getDefaultProperties();
+        }
 
         float totalValue = 0.0f;
         int maxIngredientDepth = 0;
