@@ -13,6 +13,7 @@ import net.minecraft.commands.arguments.item.ItemInput;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
+import org.jetbrains.annotations.NotNull;
 
 public class ValueCommand {
 
@@ -38,6 +39,14 @@ public class ValueCommand {
         }
 
         // Determine the item's origin based on depth and override flags
+        String output = evaluateAndBuildValue(valuation, itemName);
+
+        context.getSource().sendSuccess(() -> Component.literal(output), false);
+
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static @NotNull String evaluateAndBuildValue(ItemValuation valuation, String itemName) {
         String origin;
         if (valuation.isConfigOverride()) {
             origin = "§6[Config Override]";
@@ -48,14 +57,10 @@ public class ValueCommand {
         }
 
         // Format the output message
-        String output = String.format("§fValue of §e%s§f: §a%.5f §7(Math: %.5f) §r%s",
+        return String.format("§fValue of §e%s§f: §a%.5f §7(Math: %.5f) §r%s",
                 itemName,
                 valuation.value(),
                 valuation.calculatedValue(),
                 origin);
-
-        context.getSource().sendSuccess(() -> Component.literal(output), false);
-
-        return Command.SINGLE_SUCCESS;
     }
 }
