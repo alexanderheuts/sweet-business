@@ -55,6 +55,18 @@ public class ValuationEngine {
         return Map.copyOf(processingRules);
     }
 
+    public ProcessingTax getProcessingTax(RecipeType<?> type) {
+        var properties = getProcessingProperties(type);
+        return new ProcessingTax(Config.BASE_PROCESSING_BONUS.get(),
+                Config.TIER_PROCESSING_BONUSES.get(properties.techTier()).get(),
+                properties.isManual() ? Config.MANUAL_PROCESSING_BONUS.get() : 0.0);
+    }
+
+    private RecipeTypeDiscoverer.RecipeTypeProperties getProcessingProperties(RecipeType<?> type) {
+        var properties = processingRules.get(type);
+        return properties != null ? properties : RecipeTypeDiscoverer.getDefaultProperties();
+    }
+
     /**
      * Executes the full economy discovery and calculation process.
      */
@@ -223,10 +235,7 @@ public class ValuationEngine {
         RecipeType<?> type = holder.value().getType();
 
         // 1. Resolve processing properties
-        var typeProps = processingRules.get(type);
-        if (typeProps == null) {
-            typeProps = RecipeTypeDiscoverer.getDefaultProperties();
-        }
+        var typeProps = getProcessingProperties(type);
 
         float totalValue = 0.0f;
         int maxIngredientDepth = 0;
@@ -260,7 +269,7 @@ public class ValuationEngine {
             return false;
         }
 
-        float finalValue = (totalValue * Constants.DEFAULT_RECIPE_MULTIPLIER) / resultStack.getCount();
+        float finalValue = (float) getProcessingTax(type).calculateUnitValue(totalValue, resultStack.getCount());
         int newDepth = maxIngredientDepth + 1;
 
         ItemValuation existingValuation = itemValues.get(resultItem);

@@ -12,7 +12,6 @@ public final class Constants {
 
     // Base defaults for standard crafting
     public static final int BASE_TECH_LEVEL = 1;
-    public static final float DEFAULT_RECIPE_MULTIPLIER = 1.0f;
 
     private Constants() {
     }

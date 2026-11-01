@@ -80,10 +80,14 @@ public class TraceCommand {
         }
 
         boolean isUnresolvable = (totalCost < 0); // -1.0 means missing ingredients
-        double unitCost = (isUnresolvable || yield <= 0) ? 0 : totalCost / yield;
+        var processingTax = ValuationEngine.getInstance().getProcessingTax(holder.value().getType());
+        double unitCost = (isUnresolvable || yield <= 0) ? 0 : processingTax.calculateUnitValue(totalCost, yield);
         boolean isWinner = !isUnresolvable && targetValuation != ItemValuation.UNKNOWN && Math.abs(unitCost - targetValuation.value()) < 0.0001;
 
         printRecipeDetails(context, holder.id().getPath(), yield, unitCost, isWinner, ingredientCounts, isUnresolvable);
+        send(context, String.format("    §7Processing markup: %.2f%% (Base: %.2f%%, Tier: %.2f%%, Manual: %.2f%%)",
+                processingTax.totalPercentage(), processingTax.basePercentage(),
+                processingTax.tierPercentage(), processingTax.manualPercentage()));
     }
 
     private static double calculateCostAndGroupIngredients(NonNullList<Ingredient> ingredients, Map<String, Integer> ingredientCounts) {

@@ -3,6 +3,8 @@ package com.holysweet.sweetbusiness.config;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.minecraft.resources.ResourceLocation;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Config {
 
@@ -17,6 +19,10 @@ public class Config {
     public static final ModConfigSpec.ConfigValue<String> GLOBAL_DEFAULT_TYPE;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> NAMESPACE_DEFAULTS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> RECIPE_TYPE_OVERRIDES;
+
+    public static final ModConfigSpec.DoubleValue BASE_PROCESSING_BONUS;
+    public static final ModConfigSpec.DoubleValue MANUAL_PROCESSING_BONUS;
+    public static final Map<Integer, ModConfigSpec.DoubleValue> TIER_PROCESSING_BONUSES;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -148,6 +154,28 @@ public class Config {
                         Config::validateRecipeTypeRule);
 
         builder.pop();
+        builder.comment("Percentage markups added together for each recipe's processing step.")
+                .push("processing_tax");
+
+        BASE_PROCESSING_BONUS = builder
+                .comment("Markup applied to every processing step. A value of 2 means 2%.")
+                .defineInRange("baseProcessingBonus", 2.0, 0.0, Double.MAX_VALUE);
+
+        MANUAL_PROCESSING_BONUS = builder
+                .comment("Additional markup when the current recipe type is manual.",
+                        "Manual ingredients alone do not trigger this markup.")
+                .defineInRange("manualProcessingBonus", 10.0, 0.0, Double.MAX_VALUE);
+
+        builder.comment("Additional markup by the current recipe type's tier, independent of ingredient tiers.")
+                .push("tierBonuses");
+        Map<Integer, ModConfigSpec.DoubleValue> tierBonuses = new HashMap<>();
+        for (int tier = 1; tier <= 5; tier++) {
+            tierBonuses.put(tier, builder.defineInRange("tier" + tier, (double) tier, 0.0, Double.MAX_VALUE));
+        }
+        TIER_PROCESSING_BONUSES = Map.copyOf(tierBonuses);
+        builder.pop();
+        builder.pop();
+
         SERVER_SPEC = builder.build();
     }
 
