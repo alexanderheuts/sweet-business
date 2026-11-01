@@ -1,5 +1,6 @@
 package com.holysweet.sweetbusiness.valuation;
 
+import com.holysweet.sweetbusiness.config.Config;
 import com.holysweet.sweetbusiness.util.TerrainClassifier;
 import com.holysweet.sweetbusiness.util.TierResolver;
 import com.mojang.logging.LogUtils;
@@ -16,7 +17,6 @@ public final class ChunkStandardEvaluator {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private static final double BORING_BLOCK_VALUE = 0.1;
     private static final double BASE_TYPE_SLICE = 100.0;
     private static final double PLACEMENT_SUCCESS_RATE = 0.4;
 
@@ -26,11 +26,13 @@ public final class ChunkStandardEvaluator {
         Map<Block, Double> finalValues = new HashMap<>();
         Map<Block, Double> fancyVolumes = new HashMap<>();
 
+        double boringBlockValue = Config.TERRAIN_BASELINE.get();
+
         // 1. Filter out the boring blocks and lock them to the baseline
         for (Map.Entry<Block, Double> entry : oreVolumes.entrySet()) {
             Block block = entry.getKey();
             if (TerrainClassifier.isBoringTerrain(block)) {
-                finalValues.put(block, BORING_BLOCK_VALUE);
+                finalValues.put(block, boringBlockValue);
             } else {
                 fancyVolumes.put(block, entry.getValue());
             }
@@ -102,7 +104,7 @@ public final class ChunkStandardEvaluator {
                 .sorted(Map.Entry.<Block, Double>comparingByValue().reversed())
                 .forEach(entry -> {
                     String blockName = BuiltInRegistries.BLOCK.getKey(entry.getKey()).toString();
-                    LOGGER.debug("Block: {} | Value: {}", blockName, String.format("%.2f", entry.getValue()));
+                    LOGGER.debug("Block: {} | Value: {}", blockName, String.format("%.5f", entry.getValue()));
                 });
         LOGGER.debug("======================================================");
     }

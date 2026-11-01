@@ -7,13 +7,25 @@ public class Config {
 
     public static final ModConfigSpec SERVER_SPEC;
 
+    public static final ModConfigSpec.DoubleValue TERRAIN_BASELINE;
+
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_ITEMS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_TAGS;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
-        builder.comment("Economy and Valuation Engine Settings").push("valuation");
+        builder.comment(
+                "Economy and Valuation Engine Settings",
+                "WARNING: Changing these configurations can seriously destabilize fair economy balancing.",
+                "Increasing the value of boring blocks, or specific items like diamonds, cascades all the way through the recipe tree.",
+                "Only alter these values if you fully understand the mathematical impact."
+        ).push("valuation");
+
+        TERRAIN_BASELINE = builder
+                .comment("The baseline point value assigned to common 'boring' terrain blocks.",
+                        "Keep this low so dirt/stone doesn't rival the value of ores.")
+                .defineInRange("terrainBaseline", 0.002, 0.000001, 1.0);
 
         BASE_ITEMS = builder
                 .comment("Define base individual items, starting values, and optional tech levels.",

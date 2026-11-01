@@ -337,7 +337,6 @@ public class ValuationEngine {
                     String itemName = BuiltInRegistries.ITEM.getKey(entry.getKey()).toString();
                     ItemValuation valuation = entry.getValue();
 
-                    // NEW: Show if the engine is completely blind to this item
                     String mathStr = valuation.calculatedValue() > 0.0f ?
                             String.format("%.2f", valuation.calculatedValue()) : "BLIND SPOT (No Math)";
 
