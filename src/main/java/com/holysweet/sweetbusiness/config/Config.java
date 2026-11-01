@@ -117,7 +117,7 @@ public class Config {
 
         GLOBAL_DEFAULT_TIER = builder
                 .comment("The default tech tier for any recipe type not explicitly defined below.")
-                .defineInRange("globalDefaultTier", 1, 1, 10);
+                .defineInRange("globalDefaultTier", 1, 1, 5);
 
         GLOBAL_DEFAULT_TYPE = builder
                 .comment("The default processing type: 'manual' or 'industrial'.",
