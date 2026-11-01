@@ -12,6 +12,11 @@ public class Config {
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_ITEMS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_TAGS;
 
+    public static final ModConfigSpec.IntValue GLOBAL_DEFAULT_TIER;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> NAMESPACE_DEFAULTS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> RECIPE_TYPE_OVERRIDES;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> MANUAL_RECIPE_TYPES;
+
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
@@ -103,6 +108,51 @@ public class Config {
                         Config::validateAnchorEntry);
 
         builder.pop();
+
+        builder.comment(
+                "Processing Tier and Supply Chain Settings",
+                "These settings determine the baseline technological tier of recipes and whether they require manual labor."
+        ).push("processing_tiers");
+
+        GLOBAL_DEFAULT_TIER = builder
+                .comment("The default tech tier for any recipe type not explicitly defined below.")
+                .defineInRange("globalDefaultTier", 1, 1, 10);
+
+        NAMESPACE_DEFAULTS = builder
+                .comment("Baseline tech tiers for entire mods.",
+                        "Format: 'modid:tier'")
+                .defineList("namespaceDefaults",
+                        () -> List.of(
+                                "minecraft:1"
+                        ),
+                        () -> "",
+                        Config::validateNamespaceTier);
+
+        RECIPE_TYPE_OVERRIDES = builder
+                .comment("Specific overrides for high-end or primitive machines within a mod.",
+                        "Format: 'modid:recipe_type:tier'")
+                .defineList("recipeTypeOverrides",
+                        () -> List.of(
+                                "minecraft:smithing:1"
+                        ),
+                        () -> "",
+                        Config::validateRecipeTypeTier);
+
+        MANUAL_RECIPE_TYPES = builder
+                .comment("Recipe types that require direct player interaction.",
+                        "The engine uses this to apply manual labor taxes and cap contract volumes.",
+                        "Format: 'modid:recipe_type'")
+                .defineList("manualRecipeTypes",
+                        () -> List.of(
+                                "minecraft:smithing",
+                                "minecraft:campfire_cooking",
+                                "minecraft:stonecutting",
+                                "minecraft:crafting"
+                        ),
+                        () -> "",
+                        Config::validateRecipeType);
+
+        builder.pop();
         SERVER_SPEC = builder.build();
     }
 
@@ -121,6 +171,43 @@ public class Config {
                     return false;
                 }
             }
+        }
+        return false;
+    }
+
+    private static boolean validateNamespaceTier(Object obj) {
+        if (obj instanceof String str) {
+            String[] parts = str.split(":");
+            if (parts.length == 2) {
+                try {
+                    Integer.parseInt(parts[1]);
+                    return true;
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean validateRecipeTypeTier(Object obj) {
+        if (obj instanceof String str) {
+            String[] parts = str.split(":");
+            if (parts.length == 3) {
+                try {
+                    Integer.parseInt(parts[2]);
+                    return true;
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean validateRecipeType(Object obj) {
+        if (obj instanceof String str) {
+            return str.split(":").length == 2;
         }
         return false;
     }
