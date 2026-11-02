@@ -5,11 +5,13 @@ import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.TagResolver;
 import com.holysweet.sweetbusiness.util.TierResolver;
 import com.holysweet.sweetbusiness.valuation.discovery.BlockDropDiscoverer;
+import com.holysweet.sweetbusiness.valuation.discovery.EntityDiscoverer;
 import com.holysweet.sweetbusiness.valuation.discovery.RecipeTypeDiscoverer;
 import com.holysweet.sweetbusiness.valuation.discovery.WorldGenVolumeDiscoverer;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -33,6 +35,9 @@ public class ValuationEngine {
 
     private final Map<Item, ItemValuation> itemValues = new HashMap<>();
 
+    private Map<EntityType<?>, EntityTierEvaluator.EntityTier> entityTiers = Map.of();
+    private Map<EntityType<?>, String> unidentifiedEntities = Map.of();
+
     // In-memory cache of resolved RecipeTypes passed from the discoverer
     private Map<RecipeType<?>, RecipeTypeDiscoverer.RecipeTypeProperties> processingRules = new HashMap<>();
 
@@ -49,6 +54,14 @@ public class ValuationEngine {
      */
     public ItemValuation getValuation(Item item) {
         return itemValues.getOrDefault(item, ItemValuation.UNKNOWN);
+    }
+
+    public Map<EntityType<?>, EntityTierEvaluator.EntityTier> getEntityTiers() {
+        return entityTiers;
+    }
+
+    public Map<EntityType<?>, String> getUnidentifiedEntities() {
+        return unidentifiedEntities;
     }
 
     public Map<RecipeType<?>, RecipeTypeDiscoverer.RecipeTypeProperties> getProcessingRules() {
@@ -72,6 +85,10 @@ public class ValuationEngine {
      */
     public void calculateEconomy(MinecraftServer server) {
         itemValues.clear();
+
+        var entityDiscovery = EntityDiscoverer.discoverEntities(server);
+        entityTiers = EntityTierEvaluator.calculateTiers(entityDiscovery);
+        unidentifiedEntities = entityDiscovery.failures();
 
         // Load processing tiers and manual flags mapped from Config
         this.processingRules = RecipeTypeDiscoverer.discoverRecipeTypes(server);

@@ -15,6 +15,7 @@ public class ModCommands {
                 .then(RecipeTypesCommand.register())
                 .then(LedgerCommand.register())
                 .then(ContractCommand.register())
+                .then(EntitiesCommand.register())
         );
     }
 }

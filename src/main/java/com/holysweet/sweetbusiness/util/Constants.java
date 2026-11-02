@@ -2,6 +2,11 @@ package com.holysweet.sweetbusiness.util;
 
 public final class Constants {
 
+    public static final int BASE_MOB_TIER = 1;
+    public static final int MAX_MOB_TIER = 5;
+    public static final double MOB_HIGH_HEALTH_THRESHOLD = 80.0;
+    public static final double MOB_MODERATE_HEALTH_THRESHOLD = 40.0;
+
     // Contract details
     public static final int MIN_CONTRACT_TIER = 1;
     public static final int MAX_CONTRACT_TIER = 5;
