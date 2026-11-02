@@ -53,7 +53,7 @@ public final class BlockDropEvaluator {
                 .sorted(Map.Entry.<Item, Double>comparingByValue().reversed())
                 .forEach(entry -> {
                     String itemName = BuiltInRegistries.ITEM.getKey(entry.getKey()).toString();
-                    LOGGER.debug("Item: {} | Value: {}", itemName, String.format("%.2f", entry.getValue()));
+                    LOGGER.debug("Item: {} | Value: {}", itemName, String.format("%.5f", entry.getValue()));
                 });
     }
 }
