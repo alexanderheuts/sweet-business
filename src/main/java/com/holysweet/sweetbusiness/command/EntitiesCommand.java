@@ -92,8 +92,13 @@ public class EntitiesCommand {
             EntityTier tier = entry.getValue();
             String promotions = tier.promotions().isEmpty() ? "none (baseline)"
                     : tier.promotions().stream().sorted().map(Enum::name).collect(Collectors.joining(", "));
-            String message = String.format(Locale.ROOT, "%s | Tier: %d | Median XP: %.2f | Promotions: %s",
-                    entry.getKey(), tier.tier(), tier.medianXp(), promotions);
+            String effectiveXp = !tier.hasLootTable() ? "n/a (no loot)"
+                    : tier.effectiveXp().isEmpty() ? "unresolved"
+                    : String.format(Locale.ROOT, "%.2f (%s)", tier.effectiveXp().getAsDouble(),
+                            tier.medianXp() > 0 ? "sampled" : "tier median");
+            String message = String.format(Locale.ROOT,
+                    "%s | Tier: %d | Median XP: %.2f | Effective XP: %s | Promotions: %s",
+                    entry.getKey(), tier.tier(), tier.medianXp(), effectiveXp, promotions);
             source.sendSuccess(() -> Component.literal(message), false);
         }
         return matches.size();

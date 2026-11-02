@@ -1,7 +1,10 @@
 package com.holysweet.sweetbusiness.valuation.discovery;
 
 import com.holysweet.sweetbusiness.util.Constants;
+import com.holysweet.sweetbusiness.util.Statistics;
+import com.mojang.serialization.JsonOps;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
@@ -22,10 +25,10 @@ import net.minecraft.world.entity.monster.Blaze;
 import net.minecraft.world.entity.monster.Drowned;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.monster.Vex;
+import net.minecraft.world.level.storage.loot.LootTable;
 import net.neoforged.neoforge.common.Tags;
 
 import java.util.HashMap;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +38,8 @@ public final class EntityDiscoverer {
     private EntityDiscoverer() {}
 
     public record EntityProperties(boolean hostile, boolean boss, boolean spawnsInOverworld,
-                                   boolean flying, boolean swimming, double maxHealth, double medianXp) {}
+                                   boolean flying, boolean swimming, double maxHealth, double medianXp,
+                                   boolean hasLootTable, ResourceKey<LootTable> lootTableId, LootTable lootTable) {}
 
     public record DiscoveryResult(Map<EntityType<?>, EntityProperties> properties,
                                   Map<EntityType<?>, String> failures) {
@@ -68,10 +72,12 @@ public final class EntityDiscoverer {
                 }
                 if (!(entity instanceof Mob mob)) continue;
 
+                ResourceKey<LootTable> lootTableId = mob.getLootTable();
+                LootTable lootTable = server.reloadableRegistries().getLootTable(lootTableId);
                 properties.put(type, new EntityProperties(mob instanceof Enemy,
                         type.is(Tags.EntityTypes.BOSSES), overworldSpawns.contains(type),
                         isFlying(mob), isSwimming(mob), mob.getAttributeBaseValue(Attributes.MAX_HEALTH),
-                        simulateMedianXp(mob, server.overworld())));
+                        simulateMedianXp(mob, server.overworld()), hasLootDefined(lootTable, server), lootTableId, lootTable));
             } catch (RuntimeException | LinkageError exception) {
                 failures.put(type, exception.getClass().getName() + ": " + exception.getMessage());
             }
@@ -80,15 +86,22 @@ public final class EntityDiscoverer {
     }
 
     private static double simulateMedianXp(Mob mob, ServerLevel level) {
-        int[] samples = new int[Constants.MOB_XP_SIMULATION_ITERATIONS];
+        double[] samples = new double[Constants.MOB_XP_SIMULATION_ITERATIONS];
         for (int iteration = 0; iteration < samples.length; iteration++) {
             // No killer means no killer equipment or enchantment bonuses; no death or XP-drop events are fired.
             samples[iteration] = mob.getExperienceReward(level, null);
         }
-        Arrays.sort(samples);
-        int lowerMiddle = (samples.length - 1) / 2;
-        int upperMiddle = samples.length / 2;
-        return (samples[lowerMiddle] + (double) samples[upperMiddle]) / 2.0;
+        return Statistics.median(samples);
+    }
+
+    private static boolean hasLootDefined(LootTable table, MinecraftServer server) {
+        if (table == LootTable.EMPTY) return false;
+
+        // Inspect the definition through its codec, without reflection or rolling conditional loot.
+        var definition = LootTable.DIRECT_CODEC.encodeStart(server.registryAccess().createSerializationContext(JsonOps.INSTANCE), table)
+                .getOrThrow().getAsJsonObject();
+        var pools = definition.getAsJsonArray("pools");
+        return pools != null && !pools.isEmpty();
     }
 
     private static Set<EntityType<?>> findOverworldSpawns(MinecraftServer server) {
