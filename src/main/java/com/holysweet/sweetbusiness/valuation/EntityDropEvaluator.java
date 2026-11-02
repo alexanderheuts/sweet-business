@@ -78,10 +78,11 @@ public final class EntityDropEvaluator {
     }
 
     private static ItemValuation cheapestSource(ItemValuation first, ItemValuation second) {
+        ItemValuation cheapest = first;
         if (second.value() < first.value()
                 || (second.value() == first.value() && second.techLevel() < first.techLevel())) {
-            return second;
+            cheapest = second;
         }
-        return first;
+        return cheapest.withBulkFarmable(first.isBulkFarmable() || second.isBulkFarmable());
     }
 }

@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -103,8 +104,8 @@ public class ValuationEngine {
         seedAnchors();
 
         // Handle block drops as initial seed (i.e. redstone ore -> redstone)
-        evaluateBlockDrops(server);
-        evaluateEntityDrops(server);
+        Set<Item> worldgenAnchors = evaluateBlockDrops(server);
+        evaluateEntityDrops(server, worldgenAnchors);
 
         RegistryAccess registryAccess = server.registryAccess();
         int iteration = runValuationLoop(server, registryAccess);
@@ -181,7 +182,8 @@ public class ValuationEngine {
         }
     }
 
-    private void evaluateBlockDrops(MinecraftServer server) {
+    private Set<Item> evaluateBlockDrops(MinecraftServer server) {
+        Set<Item> worldgenAnchors = new HashSet<>();
         Map<Block, Double> oreVolumes = WorldGenVolumeDiscoverer.discoverOreVolumes(server);
         Map<Block, Double> blockValues = ChunkStandardEvaluator.calculateAnchorValues(oreVolumes);
 
@@ -195,6 +197,7 @@ public class ValuationEngine {
             // 1. Incorporate the block itself into the item list as a manual anchor
             Item blockItem = block.asItem();
             if (blockItem != Items.AIR) {
+                worldgenAnchors.add(blockItem);
                 ItemValuation existingBlock = itemValues.get(blockItem);
                 if (existingBlock != null) {
                     if (existingBlock.isConfigOverride()) {
@@ -219,6 +222,7 @@ public class ValuationEngine {
             // 4. Safely store the results, updating shadow values for overrides
             for (Map.Entry<Item, Double> dropEntry : evaluatedDrops.entrySet()) {
                 Item droppedItem = dropEntry.getKey();
+                worldgenAnchors.add(droppedItem);
                 float dropValue = dropEntry.getValue().floatValue();
 
                 ItemValuation existingDrop = itemValues.get(droppedItem);
@@ -232,9 +236,10 @@ public class ValuationEngine {
                 }
             }
         }
+        return worldgenAnchors;
     }
 
-    private void evaluateEntityDrops(MinecraftServer server) {
+    private void evaluateEntityDrops(MinecraftServer server, Set<Item> worldgenAnchors) {
         var discovery = EntityLootDiscoverer.discoverLoot(server, entityTiers);
         entityDrops = discovery.expectedDrops();
         var anchors = EntityDropEvaluator.evaluateDrops(entityTiers, discovery, Config.MOB_XP_VALUE_MULTIPLIER.get());
@@ -242,14 +247,20 @@ public class ValuationEngine {
             ItemValuation existing = itemValues.get(item);
             if (existing == null) {
                 itemValues.put(item, candidate);
-            } else if (existing.isConfigOverride()) {
-                if (existing.calculatedValue() <= 0 || candidate.value() < existing.calculatedValue()) {
-                    itemValues.put(item, existing.withCalculatedValue(candidate.value()));
-                }
-            } else if (candidate.value() < existing.value()
-                    || (candidate.value() == existing.value() && candidate.techLevel() < existing.techLevel())) {
-                itemValues.put(item, candidate);
+                return;
             }
+
+            boolean bulkFarmable = existing.isBulkFarmable() || candidate.isBulkFarmable();
+            ItemValuation merged = existing;
+            if (!worldgenAnchors.contains(item)) {
+                if (existing.isConfigOverride()) {
+                    merged = existing.withCalculatedValue(candidate.value());
+                } else if (candidate.value() < existing.value()
+                        || (candidate.value() == existing.value() && candidate.techLevel() < existing.techLevel())) {
+                    merged = candidate;
+                }
+            }
+            itemValues.put(item, merged.withBulkFarmable(bulkFarmable));
         });
     }
 

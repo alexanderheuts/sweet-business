@@ -63,4 +63,8 @@ public record ItemValuation(
     public ItemValuation withCalculatedValue(float newCalculated) {
         return new ItemValuation(this.value, newCalculated, this.depth, this.techLevel, this.isBulkFarmable, this.isConfigOverride);
     }
+
+    public ItemValuation withBulkFarmable(boolean bulkFarmable) {
+        return new ItemValuation(value, calculatedValue, depth, techLevel, bulkFarmable, isConfigOverride);
+    }
 }
