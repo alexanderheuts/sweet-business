@@ -17,6 +17,7 @@ import net.minecraft.world.entity.EntityType;
 
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Locale;
 import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -91,7 +92,8 @@ public class EntitiesCommand {
             EntityTier tier = entry.getValue();
             String promotions = tier.promotions().isEmpty() ? "none (baseline)"
                     : tier.promotions().stream().sorted().map(Enum::name).collect(Collectors.joining(", "));
-            String message = String.format("%s | Tier: %d | Promotions: %s", entry.getKey(), tier.tier(), promotions);
+            String message = String.format(Locale.ROOT, "%s | Tier: %d | Median XP: %.2f | Promotions: %s",
+                    entry.getKey(), tier.tier(), tier.medianXp(), promotions);
             source.sendSuccess(() -> Component.literal(message), false);
         }
         return matches.size();

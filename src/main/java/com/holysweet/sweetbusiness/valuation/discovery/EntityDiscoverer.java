@@ -1,7 +1,9 @@
 package com.holysweet.sweetbusiness.valuation.discovery;
 
+import com.holysweet.sweetbusiness.util.Constants;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.FlyingMob;
 import net.minecraft.world.entity.Mob;
@@ -19,11 +21,11 @@ import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.monster.Blaze;
 import net.minecraft.world.entity.monster.Drowned;
 import net.minecraft.world.entity.monster.Enemy;
-import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Vex;
 import net.neoforged.neoforge.common.Tags;
 
 import java.util.HashMap;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +35,7 @@ public final class EntityDiscoverer {
     private EntityDiscoverer() {}
 
     public record EntityProperties(boolean hostile, boolean boss, boolean spawnsInOverworld,
-                                   boolean flying, boolean swimming, double maxHealth) {}
+                                   boolean flying, boolean swimming, double maxHealth, double medianXp) {}
 
     public record DiscoveryResult(Map<EntityType<?>, EntityProperties> properties,
                                   Map<EntityType<?>, String> failures) {
@@ -66,14 +68,27 @@ public final class EntityDiscoverer {
                 }
                 if (!(entity instanceof Mob mob)) continue;
 
-                properties.put(type, new EntityProperties(mob instanceof Monster || mob instanceof Enemy,
+                properties.put(type, new EntityProperties(mob instanceof Enemy,
                         type.is(Tags.EntityTypes.BOSSES), overworldSpawns.contains(type),
-                        isFlying(mob), isSwimming(mob), mob.getAttributeBaseValue(Attributes.MAX_HEALTH)));
+                        isFlying(mob), isSwimming(mob), mob.getAttributeBaseValue(Attributes.MAX_HEALTH),
+                        simulateMedianXp(mob, server.overworld())));
             } catch (RuntimeException | LinkageError exception) {
                 failures.put(type, exception.getClass().getName() + ": " + exception.getMessage());
             }
         }
         return new DiscoveryResult(properties, failures);
+    }
+
+    private static double simulateMedianXp(Mob mob, ServerLevel level) {
+        int[] samples = new int[Constants.MOB_XP_SIMULATION_ITERATIONS];
+        for (int iteration = 0; iteration < samples.length; iteration++) {
+            // No killer means no killer equipment or enchantment bonuses; no death or XP-drop events are fired.
+            samples[iteration] = mob.getExperienceReward(level, null);
+        }
+        Arrays.sort(samples);
+        int lowerMiddle = (samples.length - 1) / 2;
+        int upperMiddle = samples.length / 2;
+        return (samples[lowerMiddle] + (double) samples[upperMiddle]) / 2.0;
     }
 
     private static Set<EntityType<?>> findOverworldSpawns(MinecraftServer server) {

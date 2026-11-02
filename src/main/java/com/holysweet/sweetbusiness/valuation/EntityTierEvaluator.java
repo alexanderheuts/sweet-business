@@ -28,7 +28,7 @@ public final class EntityTierEvaluator {
         MODERATE_HEALTH
     }
 
-    public record EntityTier(int tier, Set<Promotion> promotions) {
+    public record EntityTier(int tier, Set<Promotion> promotions, double medianXp) {
         public EntityTier {
             promotions = Set.copyOf(promotions);
         }
@@ -49,9 +49,9 @@ public final class EntityTierEvaluator {
 
         tiers.entrySet().stream()
                 .sorted(java.util.Comparator.comparing(entry -> BuiltInRegistries.ENTITY_TYPE.getKey(entry.getKey()).toString()))
-                .forEach(entry -> LOGGER.debug("Entity: {} | Tier: {} | Promotions: {}",
+                .forEach(entry -> LOGGER.debug("Entity: {} | Tier: {} | Median XP: {} | Promotions: {}",
                         BuiltInRegistries.ENTITY_TYPE.getKey(entry.getKey()),
-                        entry.getValue().tier(), entry.getValue().promotions()));
+                        entry.getValue().tier(), entry.getValue().medianXp(), entry.getValue().promotions()));
     }
 
     public static EntityTier evaluate(EntityProperties properties) {
@@ -78,6 +78,6 @@ public final class EntityTierEvaluator {
             promotions.add(Promotion.MODERATE_HEALTH);
             tier++;
         }
-        return new EntityTier(Math.min(tier, Constants.MAX_MOB_TIER), promotions);
+        return new EntityTier(Math.min(tier, Constants.MAX_MOB_TIER), promotions, properties.medianXp());
     }
 }
