@@ -111,7 +111,6 @@ public class Config {
                         "Format: 'namespace:tag_id=value;techLevel' (Do NOT use the # prefix)")
                 .defineList("baseTags",
                         () -> List.of(
-                                "c:cobblestones=0.1",
                                 "minecraft:logs=0.1"
                         ),
                         () -> "",

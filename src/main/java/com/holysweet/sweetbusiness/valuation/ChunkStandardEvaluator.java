@@ -28,13 +28,16 @@ public final class ChunkStandardEvaluator {
 
         double boringBlockValue = Config.TERRAIN_BASELINE.get();
 
-        // 1. Filter out the boring blocks and lock them to the baseline
-        for (Map.Entry<Block, Double> entry : oreVolumes.entrySet()) {
-            Block block = entry.getKey();
+        // Structural terrain is not necessarily represented by an ore feature.
+        for (Block block : BuiltInRegistries.BLOCK) {
             if (TerrainClassifier.isBoringTerrain(block)) {
                 finalValues.put(block, boringBlockValue);
-            } else {
-                fancyVolumes.put(block, entry.getValue());
+            }
+        }
+
+        for (Map.Entry<Block, Double> entry : oreVolumes.entrySet()) {
+            if (!finalValues.containsKey(entry.getKey())) {
+                fancyVolumes.put(entry.getKey(), entry.getValue());
             }
         }
 

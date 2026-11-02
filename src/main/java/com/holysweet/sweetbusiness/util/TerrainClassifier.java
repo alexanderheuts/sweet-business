@@ -4,6 +4,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.neoforged.neoforge.common.Tags;
 
 public final class TerrainClassifier {
 
@@ -22,6 +23,7 @@ public final class TerrainClassifier {
         }
 
         return state.is(BlockTags.DIRT)
+                || state.is(Tags.Blocks.COBBLESTONES)
                 || state.is(BlockTags.BASE_STONE_OVERWORLD)
                 || state.is(BlockTags.BASE_STONE_NETHER)
                 || state.is(BlockTags.SAND)
