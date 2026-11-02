@@ -26,6 +26,7 @@ public class Config {
     public static final Map<Integer, ModConfigSpec.DoubleValue> TIER_PROCESSING_BONUSES;
 
     public static final ModConfigSpec.DoubleValue CONTRACT_EXTRA_LINE_CHANCE;
+    public static final ModConfigSpec.DoubleValue MOB_XP_VALUE_MULTIPLIER;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -182,6 +183,12 @@ public class Config {
         CONTRACT_EXTRA_LINE_CHANCE = builder
                 .comment("Percentage chance of an extra delivery line, rolled independently once per contract tier.")
                 .defineInRange("extraLineChance", Constants.DEFAULT_CONTRACT_EXTRA_LINE_CHANCE, 0.0, 100.0);
+        builder.pop();
+
+        builder.push("mob_loot");
+        MOB_XP_VALUE_MULTIPLIER = builder
+                .comment("Scales the mob loot value budget: effective kill XP * mob tier * this multiplier.")
+                .defineInRange("xpValueMultiplier", Constants.DEFAULT_MOB_XP_VALUE_MULTIPLIER, 0.000001, Double.MAX_VALUE);
         builder.pop();
 
         SERVER_SPEC = builder.build();

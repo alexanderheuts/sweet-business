@@ -6,6 +6,7 @@ import com.holysweet.sweetbusiness.util.TagResolver;
 import com.holysweet.sweetbusiness.util.TierResolver;
 import com.holysweet.sweetbusiness.valuation.discovery.BlockDropDiscoverer;
 import com.holysweet.sweetbusiness.valuation.discovery.EntityDiscoverer;
+import com.holysweet.sweetbusiness.valuation.discovery.EntityLootDiscoverer;
 import com.holysweet.sweetbusiness.valuation.discovery.RecipeTypeDiscoverer;
 import com.holysweet.sweetbusiness.valuation.discovery.WorldGenVolumeDiscoverer;
 import net.minecraft.core.RegistryAccess;
@@ -37,6 +38,7 @@ public class ValuationEngine {
 
     private Map<EntityType<?>, EntityTierEvaluator.EntityTier> entityTiers = Map.of();
     private Map<EntityType<?>, String> unidentifiedEntities = Map.of();
+    private Map<EntityType<?>, Map<Item, Double>> entityDrops = Map.of();
 
     // In-memory cache of resolved RecipeTypes passed from the discoverer
     private Map<RecipeType<?>, RecipeTypeDiscoverer.RecipeTypeProperties> processingRules = new HashMap<>();
@@ -62,6 +64,10 @@ public class ValuationEngine {
 
     public Map<EntityType<?>, String> getUnidentifiedEntities() {
         return unidentifiedEntities;
+    }
+
+    public Map<EntityType<?>, Map<Item, Double>> getEntityDrops() {
+        return entityDrops;
     }
 
     public Map<RecipeType<?>, RecipeTypeDiscoverer.RecipeTypeProperties> getProcessingRules() {
@@ -98,6 +104,7 @@ public class ValuationEngine {
 
         // Handle block drops as initial seed (i.e. redstone ore -> redstone)
         evaluateBlockDrops(server);
+        evaluateEntityDrops(server);
 
         RegistryAccess registryAccess = server.registryAccess();
         int iteration = runValuationLoop(server, registryAccess);
@@ -225,6 +232,25 @@ public class ValuationEngine {
                 }
             }
         }
+    }
+
+    private void evaluateEntityDrops(MinecraftServer server) {
+        var discovery = EntityLootDiscoverer.discoverLoot(server, entityTiers);
+        entityDrops = discovery.expectedDrops();
+        var anchors = EntityDropEvaluator.evaluateDrops(entityTiers, discovery, Config.MOB_XP_VALUE_MULTIPLIER.get());
+        anchors.forEach((item, candidate) -> {
+            ItemValuation existing = itemValues.get(item);
+            if (existing == null) {
+                itemValues.put(item, candidate);
+            } else if (existing.isConfigOverride()) {
+                if (existing.calculatedValue() <= 0 || candidate.value() < existing.calculatedValue()) {
+                    itemValues.put(item, existing.withCalculatedValue(candidate.value()));
+                }
+            } else if (candidate.value() < existing.value()
+                    || (candidate.value() == existing.value() && candidate.techLevel() < existing.techLevel())) {
+                itemValues.put(item, candidate);
+            }
+        });
     }
 
     private int runValuationLoop(MinecraftServer server, RegistryAccess registryAccess) {
