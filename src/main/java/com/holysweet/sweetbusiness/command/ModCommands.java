@@ -14,6 +14,7 @@ public class ModCommands {
                 .then(TraceCommand.register(buildContext))
                 .then(RecipeTypesCommand.register())
                 .then(LedgerCommand.register())
+                .then(ContractCommand.register())
         );
     }
 }

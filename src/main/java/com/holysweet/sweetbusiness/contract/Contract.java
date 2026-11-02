@@ -13,14 +13,8 @@ public record Contract(UUID id, int tier, List<DeliveryLine> lines, ContractRewa
     public Contract {
         Objects.requireNonNull(id);
         Objects.requireNonNull(reward);
-        if (tier < 1 || tier > 5) {
-            throw new IllegalArgumentException("Contract tier must be between 1 and 5");
-        }
-
         lines = mergeLines(lines);
-        if (lines.isEmpty() || lines.size() > tier * 2) {
-            throw new IllegalArgumentException("Contract must have between 1 and " + tier * 2 + " delivery lines");
-        }
+        ContractRules.validateLineCount(tier, lines.size());
     }
 
     public Contract(UUID id, int tier, List<DeliveryLine> lines) {

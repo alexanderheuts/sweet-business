@@ -2,6 +2,16 @@ package com.holysweet.sweetbusiness.util;
 
 public final class Constants {
 
+    // Contract details
+    public static final int MIN_CONTRACT_TIER = 1;
+    public static final int MAX_CONTRACT_TIER = 5;
+    public static final int BASE_CONTRACT_LINES = 1;
+    public static final double CONTRACT_TARGET_VALUE_BASE = 5.0;
+    public static final int CONTRACT_ITEMS_PER_TARGET_VALUE = 64;
+    public static final double CONTRACT_MIN_LINE_WEIGHT = 0.1;
+    public static final double CONTRACT_MAX_LINE_WEIGHT = 0.9;
+    public static final double DEFAULT_CONTRACT_EXTRA_LINE_CHANCE = 15.0;
+
     // Valuation Engine Defaults
     public static final int ENGINE_MAX_ITERATIONS = 25;
 

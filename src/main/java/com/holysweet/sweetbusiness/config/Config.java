@@ -1,5 +1,6 @@
 package com.holysweet.sweetbusiness.config;
 
+import com.holysweet.sweetbusiness.util.Constants;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.minecraft.resources.ResourceLocation;
 import java.util.List;
@@ -23,6 +24,8 @@ public class Config {
     public static final ModConfigSpec.DoubleValue BASE_PROCESSING_BONUS;
     public static final ModConfigSpec.DoubleValue MANUAL_PROCESSING_BONUS;
     public static final Map<Integer, ModConfigSpec.DoubleValue> TIER_PROCESSING_BONUSES;
+
+    public static final ModConfigSpec.DoubleValue CONTRACT_EXTRA_LINE_CHANCE;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -174,6 +177,12 @@ public class Config {
         }
         TIER_PROCESSING_BONUSES = Map.copyOf(tierBonuses);
         builder.pop();
+        builder.pop();
+
+        builder.push("contract_generation");
+        CONTRACT_EXTRA_LINE_CHANCE = builder
+                .comment("Percentage chance of an extra delivery line, rolled independently once per contract tier.")
+                .defineInRange("extraLineChance", Constants.DEFAULT_CONTRACT_EXTRA_LINE_CHANCE, 0.0, 100.0);
         builder.pop();
 
         SERVER_SPEC = builder.build();
