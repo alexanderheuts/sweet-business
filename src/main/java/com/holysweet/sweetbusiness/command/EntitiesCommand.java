@@ -97,8 +97,8 @@ public class EntitiesCommand {
                     : String.format(Locale.ROOT, "%.2f (%s)", tier.effectiveXp().getAsDouble(),
                             tier.medianXp() > 0 ? "sampled" : "tier median");
             String message = String.format(Locale.ROOT,
-                    "%s | Tier: %d | Median XP: %.2f | Effective XP: %s | Promotions: %s",
-                    entry.getKey(), tier.tier(), tier.medianXp(), effectiveXp, promotions);
+                    "%s | Tier: %d | Median XP: %.2f | Effective XP: %s | Farmable: %s | Promotions: %s",
+                    entry.getKey(), tier.tier(), tier.medianXp(), effectiveXp, tier.farmable(), promotions);
             source.sendSuccess(() -> Component.literal(message), false);
         }
         return matches.size();

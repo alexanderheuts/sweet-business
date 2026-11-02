@@ -27,6 +27,7 @@ public class Config {
 
     public static final ModConfigSpec.DoubleValue CONTRACT_EXTRA_LINE_CHANCE;
     public static final ModConfigSpec.DoubleValue MOB_XP_VALUE_MULTIPLIER;
+    public static final ModConfigSpec.BooleanValue SPAWN_EGGS_ENABLE_FARMING;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -186,6 +187,10 @@ public class Config {
         builder.pop();
 
         builder.push("mob_loot");
+        SPAWN_EGGS_ENABLE_FARMING = builder
+                .comment("Assume mobs with registered spawn eggs can be farmed industrially.",
+                        "Disable if the modpack cannot use spawn eggs to configure mob spawners.")
+                .define("spawnEggsEnableFarming", true);
         MOB_XP_VALUE_MULTIPLIER = builder
                 .comment("Scales the mob loot value budget: effective kill XP * mob tier * this multiplier.")
                 .defineInRange("xpValueMultiplier", Constants.DEFAULT_MOB_XP_VALUE_MULTIPLIER, 0.000001, Double.MAX_VALUE);

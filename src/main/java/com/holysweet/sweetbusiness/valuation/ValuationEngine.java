@@ -93,7 +93,7 @@ public class ValuationEngine {
         itemValues.clear();
 
         var entityDiscovery = EntityDiscoverer.discoverEntities(server);
-        entityTiers = EntityTierEvaluator.calculateTiers(entityDiscovery);
+        entityTiers = EntityTierEvaluator.calculateTiers(entityDiscovery, Config.SPAWN_EGGS_ENABLE_FARMING.get());
         unidentifiedEntities = entityDiscovery.failures();
 
         // Load processing tiers and manual flags mapped from Config

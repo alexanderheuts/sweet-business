@@ -46,7 +46,7 @@ public final class EntityDropEvaluator {
                             BuiltInRegistries.ITEM.getKey(item), BuiltInRegistries.ENTITY_TYPE.getKey(type));
                     return;
                 }
-                ItemValuation candidate = new ItemValuation(unitValue, 0, tier.tier(), false);
+                ItemValuation candidate = new ItemValuation(unitValue, 0, tier.tier(), tier.farmable());
                 anchors.merge(item, candidate, EntityDropEvaluator::cheapestSource);
                 LOGGER.debug("Mob: {} | Item: {} | Expected yield: {} | Budget: {} | Unit value: {}",
                         BuiltInRegistries.ENTITY_TYPE.getKey(type), BuiltInRegistries.ITEM.getKey(item),

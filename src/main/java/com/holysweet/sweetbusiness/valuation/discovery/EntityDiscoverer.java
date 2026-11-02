@@ -26,6 +26,7 @@ import net.minecraft.world.entity.monster.Drowned;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.monster.Vex;
 import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.item.SpawnEggItem;
 import net.neoforged.neoforge.common.Tags;
 
 import java.util.HashMap;
@@ -39,7 +40,8 @@ public final class EntityDiscoverer {
 
     public record EntityProperties(boolean hostile, boolean boss, boolean spawnsInOverworld,
                                    boolean flying, boolean swimming, double maxHealth, double medianXp,
-                                   boolean hasLootTable, ResourceKey<LootTable> lootTableId, LootTable lootTable) {}
+                                   boolean hasLootTable, ResourceKey<LootTable> lootTableId, LootTable lootTable,
+                                   boolean hasSpawnEgg) {}
 
     public record DiscoveryResult(Map<EntityType<?>, EntityProperties> properties,
                                   Map<EntityType<?>, String> failures) {
@@ -77,7 +79,8 @@ public final class EntityDiscoverer {
                 properties.put(type, new EntityProperties(mob instanceof Enemy,
                         type.is(Tags.EntityTypes.BOSSES), overworldSpawns.contains(type),
                         isFlying(mob), isSwimming(mob), mob.getAttributeBaseValue(Attributes.MAX_HEALTH),
-                        simulateMedianXp(mob, server.overworld()), hasLootDefined(lootTable, server), lootTableId, lootTable));
+                        simulateMedianXp(mob, server.overworld()), hasLootDefined(lootTable, server), lootTableId, lootTable,
+                        SpawnEggItem.byId(type) != null));
             } catch (RuntimeException | LinkageError exception) {
                 failures.put(type, exception.getClass().getName() + ": " + exception.getMessage());
             }

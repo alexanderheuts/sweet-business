@@ -36,15 +36,15 @@ public final class EntityTierEvaluator {
 
     public record EntityTier(int tier, Set<Promotion> promotions, double medianXp,
                              boolean hasLootTable, ResourceKey<LootTable> lootTableId, LootTable lootTable,
-                             OptionalDouble effectiveXp) {
+                             OptionalDouble effectiveXp, boolean farmable) {
         public EntityTier {
             promotions = Set.copyOf(promotions);
         }
     }
 
-    public static Map<EntityType<?>, EntityTier> calculateTiers(DiscoveryResult discovery) {
+    public static Map<EntityType<?>, EntityTier> calculateTiers(DiscoveryResult discovery, boolean spawnEggsEnableFarming) {
         Map<EntityType<?>, EntityTier> tiers = new HashMap<>();
-        discovery.properties().forEach((type, data) -> tiers.put(type, evaluate(data)));
+        discovery.properties().forEach((type, data) -> tiers.put(type, evaluate(data, spawnEggsEnableFarming)));
         Map<Integer, Double> tierMedians = calculateTierMedians(tiers);
         tiers.replaceAll((type, tier) -> resolveXp(type, tier, tierMedians));
         discovery.failures().forEach((type, reason) -> LOGGER.warn("Could not determine mob tier for {}: {}",
@@ -77,7 +77,7 @@ public final class EntityTierEvaluator {
             return tier;
         }
         return new EntityTier(tier.tier(), tier.promotions(), tier.medianXp(), true,
-                tier.lootTableId(), tier.lootTable(), OptionalDouble.of(fallback));
+                tier.lootTableId(), tier.lootTable(), OptionalDouble.of(fallback), tier.farmable());
     }
 
     private static void logDebugTiers(Map<EntityType<?>, EntityTier> tiers) {
@@ -85,13 +85,13 @@ public final class EntityTierEvaluator {
 
         tiers.entrySet().stream()
                 .sorted(java.util.Comparator.comparing(entry -> BuiltInRegistries.ENTITY_TYPE.getKey(entry.getKey()).toString()))
-                .forEach(entry -> LOGGER.debug("Entity: {} | Tier: {} | Median XP: {} | Has loot: {} | Effective XP: {} | Promotions: {}",
+                .forEach(entry -> LOGGER.debug("Entity: {} | Tier: {} | Median XP: {} | Has loot: {} | Effective XP: {} | Farmable: {} | Promotions: {}",
                         BuiltInRegistries.ENTITY_TYPE.getKey(entry.getKey()),
                         entry.getValue().tier(), entry.getValue().medianXp(), entry.getValue().hasLootTable(),
-                        entry.getValue().effectiveXp(), entry.getValue().promotions()));
+                        entry.getValue().effectiveXp(), entry.getValue().farmable(), entry.getValue().promotions()));
     }
 
-    public static EntityTier evaluate(EntityProperties properties) {
+    public static EntityTier evaluate(EntityProperties properties, boolean spawnEggsEnableFarming) {
         Set<Promotion> promotions = EnumSet.noneOf(Promotion.class);
         if (properties.hostile()) {
             promotions.add(Promotion.HOSTILE);
@@ -118,6 +118,7 @@ public final class EntityTierEvaluator {
         OptionalDouble effectiveXp = properties.hasLootTable() && properties.medianXp() > 0
                 ? OptionalDouble.of(properties.medianXp()) : OptionalDouble.empty();
         return new EntityTier(Math.min(tier, Constants.MAX_MOB_TIER), promotions, properties.medianXp(),
-                properties.hasLootTable(), properties.lootTableId(), properties.lootTable(), effectiveXp);
+                properties.hasLootTable(), properties.lootTableId(), properties.lootTable(), effectiveXp,
+                spawnEggsEnableFarming && properties.hasSpawnEgg());
     }
 }
