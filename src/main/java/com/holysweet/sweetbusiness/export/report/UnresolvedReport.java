@@ -7,15 +7,15 @@ import com.holysweet.sweetbusiness.export.ExportReport;
 import com.holysweet.sweetbusiness.recipe.RecipeIndex;
 import com.holysweet.sweetbusiness.valuation.ItemValuation;
 import com.holysweet.sweetbusiness.valuation.ValuationEngine;
+import com.holysweet.sweetbusiness.valuation.EconomyInputs.IngredientInput;
+import com.holysweet.sweetbusiness.valuation.EconomyInputs.RecipeInput;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,46 +35,43 @@ public final class UnresolvedReport implements ExportReport {
 
     @Override
     public Optional<ExportData> snapshot(MinecraftServer server) {
-        return ValuationEngine.getInstance().getValuations().map(values -> buildReport(server, values));
+        var engine = ValuationEngine.getInstance();
+        return engine.getCalculationInputs().flatMap(inputs -> engine.getValuations()
+                .map(values -> buildReport(inputs.recipes(), values, RecipeIndex.getInstance())));
     }
 
-    private static ExportData buildReport(MinecraftServer server, Map<Item, ItemValuation> values) {
+    static ExportData buildReport(List<RecipeInput> recipes, Map<Item, ItemValuation> values, RecipeIndex index) {
         Map<ResourceLocation, BlockedRecipe> blockedRecipes = new HashMap<>();
         Set<ResourceLocation> recipeOutputs = new HashSet<>();
-        for (var holder : server.getRecipeManager().getRecipes()) {
-            Recipe<?> recipe = holder.value();
-            ItemStack output = recipe.getResultItem(server.registryAccess());
-            if (output.isEmpty()) continue;
-            ResourceLocation outputId = BuiltInRegistries.ITEM.getKey(output.getItem());
+        for (RecipeInput recipe : recipes) {
+            ResourceLocation outputId = BuiltInRegistries.ITEM.getKey(recipe.output());
             recipeOutputs.add(outputId);
-            if (values.getOrDefault(output.getItem(), ItemValuation.UNKNOWN).isKnown()) continue;
+            if (values.getOrDefault(recipe.output(), ItemValuation.UNKNOWN).isKnown()) continue;
 
             Set<ResourceLocation> blockedIngredients = findBlockedIngredients(recipe, values);
             if (!blockedIngredients.isEmpty()) {
-                blockedRecipes.put(holder.id(), new BlockedRecipe(outputId, blockedIngredients));
+                blockedRecipes.put(recipe.id(), new BlockedRecipe(outputId, blockedIngredients));
             }
         }
 
-        var impacts = UnresolvedImpactEvaluator.evaluate(blockedRecipes, recipeOutputs, RecipeIndex.getInstance());
+        var impacts = UnresolvedImpactEvaluator.evaluate(blockedRecipes, recipeOutputs, index);
         List<List<?>> rows = new ArrayList<>();
         impacts.forEach(impact -> rows.add(List.of(impact.itemId().toString(), impact.hasProductionRecipe(),
                 impact.directBlockedRecipes(), impact.downstreamAffectedItems())));
         return new ExportData(COLUMNS, rows);
     }
 
-    private static Set<ResourceLocation> findBlockedIngredients(Recipe<?> recipe, Map<Item, ItemValuation> values) {
+    private static Set<ResourceLocation> findBlockedIngredients(RecipeInput recipe, Map<Item, ItemValuation> values) {
         Set<ResourceLocation> blocked = new HashSet<>();
-        for (var ingredient : recipe.getIngredients()) {
-            if (ingredient.isEmpty()) continue;
-            ItemStack[] alternatives = ingredient.getItems();
+        for (IngredientInput ingredient : recipe.ingredients()) {
             // A usable alternative satisfies the whole slot; its unknown siblings do not block this recipe.
-            boolean satisfied = Arrays.stream(alternatives).filter(stack -> !stack.isEmpty())
-                    .anyMatch(stack -> isUsable(values.getOrDefault(stack.getItem(), ItemValuation.UNKNOWN)));
+            boolean satisfied = ingredient.alternatives().stream().filter(option -> option.item() != Items.AIR)
+                    .anyMatch(option -> isUsable(values.getOrDefault(option.item(), ItemValuation.UNKNOWN)));
             if (satisfied) continue;
-            for (ItemStack alternative : alternatives) {
-                if (alternative.isEmpty()) continue;
-                if (!values.getOrDefault(alternative.getItem(), ItemValuation.UNKNOWN).isKnown()) {
-                    blocked.add(BuiltInRegistries.ITEM.getKey(alternative.getItem()));
+            for (var alternative : ingredient.alternatives()) {
+                if (alternative.item() == Items.AIR) continue;
+                if (!values.getOrDefault(alternative.item(), ItemValuation.UNKNOWN).isKnown()) {
+                    blocked.add(BuiltInRegistries.ITEM.getKey(alternative.item()));
                 }
             }
         }
