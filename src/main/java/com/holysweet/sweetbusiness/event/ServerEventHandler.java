@@ -35,6 +35,7 @@ public class ServerEventHandler {
     public void onServerStopped(ServerStoppedEvent event) {
         CraftableSetManager.getInstance().clear();
         RecipeIndex.clear();
+        ValuationEngine.getInstance().clear();
     }
 
     @SubscribeEvent
