@@ -14,7 +14,9 @@ import com.holysweet.sweetbusiness.discovery.block.BlockDropDiscoverer;
 import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer;
 import com.holysweet.sweetbusiness.discovery.entity.EntityLootDiscoverer;
 import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer;
-import com.holysweet.sweetbusiness.discovery.worldgen.WorldGenVolumeDiscoverer;
+import com.holysweet.sweetbusiness.discovery.worldgen.WorldGenDiscoverer;
+import com.holysweet.sweetbusiness.discovery.worldgen.OreBlockDiscoverer;
+import com.holysweet.sweetbusiness.evaluation.worldgen.OreVolumeEvaluator;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
@@ -190,7 +192,9 @@ public class ValuationEngine {
 
     private Set<Item> evaluateBlockDrops(MinecraftServer server) {
         Set<Item> worldgenAnchors = new HashSet<>();
-        Map<Block, Double> oreVolumes = WorldGenVolumeDiscoverer.discoverOreVolumes(server);
+        var worldgen = WorldGenDiscoverer.discoverFeatures(server);
+        var oreBlocks = OreBlockDiscoverer.discoverBlocks(worldgen);
+        Map<Block, Double> oreVolumes = OreVolumeEvaluator.evaluateVolumes(worldgen, oreBlocks);
         Map<Block, Double> blockValues = ChunkStandardEvaluator.calculateAnchorValues(oreVolumes);
 
         net.minecraft.server.level.ServerLevel overworld = server.overworld();
