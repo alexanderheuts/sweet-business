@@ -7,7 +7,8 @@ import com.holysweet.sweetbusiness.evaluation.entity.EntityTierEvaluator;
 import com.holysweet.sweetbusiness.evaluation.entity.EntityEvaluator;
 import com.holysweet.sweetbusiness.valuation.recipe.ProcessingTax;
 
-import com.holysweet.sweetbusiness.config.Config;
+import com.holysweet.sweetbusiness.config.ServerConfig;
+import com.holysweet.sweetbusiness.config.ValuationConfig;
 import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.TagResolver;
 import com.holysweet.sweetbusiness.evaluation.block.TierResolver;
@@ -93,9 +94,9 @@ public class ValuationEngine {
 
     public ProcessingTax getProcessingTax(RecipeType<?> type) {
         var properties = getProcessingProperties(type);
-        return new ProcessingTax(Config.BASE_PROCESSING_BONUS.get(),
-                Config.TIER_PROCESSING_BONUSES.get(properties.techTier()).get(),
-                properties.isManual() ? Config.MANUAL_PROCESSING_BONUS.get() : 0.0);
+        return new ProcessingTax(ValuationConfig.BASE_PROCESSING_BONUS.get(),
+                ValuationConfig.TIER_PROCESSING_BONUSES.get(properties.techTier()).get(),
+                properties.isManual() ? ValuationConfig.MANUAL_PROCESSING_BONUS.get() : 0.0);
     }
 
     private RecipeTypeDiscoverer.RecipeTypeProperties getProcessingProperties(RecipeType<?> type) {
@@ -110,7 +111,7 @@ public class ValuationEngine {
         itemValues.clear();
 
         var entityDiscovery = EntityDiscoverer.discoverEntities(server);
-        entityTiers = EntityEvaluator.evaluateEntities(entityDiscovery, Config.SPAWN_EGGS_ENABLE_FARMING.get());
+        entityTiers = EntityEvaluator.evaluateEntities(entityDiscovery, ServerConfig.SPAWN_EGGS_ENABLE_FARMING.get());
         unidentifiedEntities = entityDiscovery.failures();
 
         // Load processing tiers and manual flags mapped from Config
@@ -124,7 +125,7 @@ public class ValuationEngine {
         Set<Item> worldgenAnchors = evaluateBlockDrops(server, worldgen);
         var placements = BlockPlacementDiscoverer.discoverBlocks(server.registryAccess(), worldgen);
         var crops = CropEvaluator.evaluateCrops(CropDiscoverer.discoverCrops(server.overworld(), placements));
-        var cropAnchors = CropValuator.valueNaturalCrops(crops, Config.CROP_BASELINE.get().floatValue());
+        var cropAnchors = CropValuator.valueNaturalCrops(crops, ValuationConfig.CROP_BASELINE.get().floatValue());
         mergeCropValues(cropAnchors, worldgenAnchors);
         worldgenAnchors.addAll(cropAnchors.keySet());
         evaluateEntityDrops(server, worldgenAnchors, entityDiscovery.properties());
@@ -169,10 +170,10 @@ public class ValuationEngine {
 
     private void seedAnchors() {
         // 1. Load broad categories first to set the baseline
-        seedFromConfigList(Config.BASE_TAGS.get(), true);
+        seedFromConfigList(ValuationConfig.BASE_TAGS.get(), true);
 
         // 2. Load individual items second so they strictly override tag values
-        seedFromConfigList(Config.BASE_ITEMS.get(), false);
+        seedFromConfigList(ValuationConfig.BASE_ITEMS.get(), false);
     }
 
     private void seedFromConfigList(List<? extends String> entries, boolean isTag) {
@@ -266,7 +267,7 @@ public class ValuationEngine {
                                      Map<EntityType<?>, EntityProperties> entities) {
         var discovery = EntityLootDiscoverer.discoverLoot(server, entities);
         entityDrops = discovery.expectedDrops();
-        var anchors = EntityDropEvaluator.evaluateDrops(entityTiers, discovery, Config.MOB_XP_VALUE_MULTIPLIER.get());
+        var anchors = EntityDropEvaluator.evaluateDrops(entityTiers, discovery, ValuationConfig.MOB_XP_VALUE_MULTIPLIER.get());
         anchors.forEach((item, candidate) -> {
             ItemValuation existing = itemValues.get(item);
             if (existing == null) {

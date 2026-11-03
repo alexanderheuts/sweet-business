@@ -1,6 +1,6 @@
 package com.holysweet.sweetbusiness.command;
 
-import com.holysweet.sweetbusiness.config.Config;
+import com.holysweet.sweetbusiness.config.ServerConfig;
 import com.holysweet.sweetbusiness.contract.Contract;
 import com.holysweet.sweetbusiness.contract.DeliveryLine;
 import com.holysweet.sweetbusiness.contract.generator.ContractGenerator;
@@ -48,7 +48,7 @@ public class ContractCommand {
 
         try {
             var contract = ContractGenerator.generate(UUID.randomUUID(), tier, getCraftableValuations(player),
-                    Config.CONTRACT_EXTRA_LINE_CHANCE.get(), ThreadLocalRandom.current().nextLong());
+                    ServerConfig.CONTRACT_EXTRA_LINE_CHANCE.get(), ThreadLocalRandom.current().nextLong());
             if (contract.isEmpty()) {
                 source.sendFailure(Component.literal("No mock contract generated: no eligible items could fill its lines."));
                 return 0;

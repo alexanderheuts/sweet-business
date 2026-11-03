@@ -1,6 +1,8 @@
 package com.holysweet.sweetbusiness;
 
-import com.holysweet.sweetbusiness.config.Config;
+import com.holysweet.sweetbusiness.config.ServerConfig;
+import com.holysweet.sweetbusiness.config.TierConfig;
+import com.holysweet.sweetbusiness.config.ValuationConfig;
 import com.holysweet.sweetbusiness.event.ServerEventHandler;
 import com.holysweet.sweetbusiness.event.LedgerEventHandler;
 
@@ -20,7 +22,9 @@ public class SweetBusiness {
         NeoForge.EVENT_BUS.register(new ServerEventHandler());
         NeoForge.EVENT_BUS.register(new LedgerEventHandler());
 
-        modContainer.registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC);
+        modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC, MODID + "/" + MODID + "-server.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, TierConfig.SPEC, MODID + "/" + MODID + "-tiers.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, ValuationConfig.SPEC, MODID + "/" + MODID + "-valuation.toml");
 
     }
 }

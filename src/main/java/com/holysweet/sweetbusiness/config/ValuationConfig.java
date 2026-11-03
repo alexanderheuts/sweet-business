@@ -2,33 +2,24 @@ package com.holysweet.sweetbusiness.config;
 
 import com.holysweet.sweetbusiness.util.Constants;
 import net.neoforged.neoforge.common.ModConfigSpec;
-import net.minecraft.resources.ResourceLocation;
-import java.util.List;
+
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-public class Config {
+public final class ValuationConfig {
 
-    public static final ModConfigSpec SERVER_SPEC;
-
+    public static final ModConfigSpec SPEC;
     public static final ModConfigSpec.DoubleValue TERRAIN_BASELINE;
     public static final ModConfigSpec.DoubleValue CROP_BASELINE;
-
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_ITEMS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_TAGS;
-
-    public static final ModConfigSpec.IntValue GLOBAL_DEFAULT_TIER;
-    public static final ModConfigSpec.ConfigValue<String> GLOBAL_DEFAULT_TYPE;
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> NAMESPACE_DEFAULTS;
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> RECIPE_TYPE_OVERRIDES;
-
     public static final ModConfigSpec.DoubleValue BASE_PROCESSING_BONUS;
     public static final ModConfigSpec.DoubleValue MANUAL_PROCESSING_BONUS;
     public static final Map<Integer, ModConfigSpec.DoubleValue> TIER_PROCESSING_BONUSES;
-
-    public static final ModConfigSpec.DoubleValue CONTRACT_EXTRA_LINE_CHANCE;
     public static final ModConfigSpec.DoubleValue MOB_XP_VALUE_MULTIPLIER;
-    public static final ModConfigSpec.BooleanValue SPAWN_EGGS_ENABLE_FARMING;
+
+    private ValuationConfig() {}
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -111,7 +102,7 @@ public class Config {
                                 "minecraft:nether_star=50.0;5"
                         ),
                         () -> "",
-                        Config::validateAnchorEntry);
+                        ValuationConfig::validateAnchorEntry);
 
         BASE_TAGS = builder
                 .comment("Define base tags, starting values, and optional tech levels.",
@@ -121,48 +112,10 @@ public class Config {
                                 "minecraft:logs=0.1"
                         ),
                         () -> "",
-                        Config::validateAnchorEntry);
+                        ValuationConfig::validateAnchorEntry);
 
         builder.pop();
 
-        builder.comment(
-                "Processing Tier and Supply Chain Settings",
-                "These settings determine the baseline technological tier of recipes and whether they require manual labor."
-        ).push("processing_tiers");
-
-        GLOBAL_DEFAULT_TIER = builder
-                .comment("The default tech tier for any recipe type not explicitly defined below.")
-                .defineInRange("globalDefaultTier", 1, 1, 5);
-
-        GLOBAL_DEFAULT_TYPE = builder
-                .comment("The default processing type: 'manual' or 'industrial'.",
-                        "Recipe type overrides take precedence over namespace defaults, then global defaults.")
-                .define("globalDefaultType", "industrial", Config::validateProcessingType);
-
-        NAMESPACE_DEFAULTS = builder
-                .comment("Baseline tech tiers and processing types for entire mods.",
-                        "Format: 'modid:tier:manual' or 'modid:tier:industrial' (tier: 1-10)")
-                .defineList("namespaceDefaults",
-                        () -> List.of(
-                                "minecraft:1:industrial"
-                        ),
-                        () -> "",
-                        Config::validateNamespaceRule);
-
-        RECIPE_TYPE_OVERRIDES = builder
-                .comment("Specific tech tier and processing type overrides within a mod.",
-                        "Format: 'modid:recipe_type:tier:manual' or 'modid:recipe_type:tier:industrial' (tier: 1-10)")
-                .defineList("recipeTypeOverrides",
-                        () -> List.of(
-                                "minecraft:smithing:1:manual",
-                                "minecraft:campfire_cooking:1:manual",
-                                "minecraft:stonecutting:1:manual",
-                                "minecraft:crafting:1:manual"
-                        ),
-                        () -> "",
-                        Config::validateRecipeTypeRule);
-
-        builder.pop();
         builder.comment("Percentage markups added together for each recipe's processing step.")
                 .push("processing_tax");
 
@@ -185,23 +138,13 @@ public class Config {
         builder.pop();
         builder.pop();
 
-        builder.push("contract_generation");
-        CONTRACT_EXTRA_LINE_CHANCE = builder
-                .comment("Percentage chance of an extra delivery line, rolled independently once per contract tier.")
-                .defineInRange("extraLineChance", Constants.DEFAULT_CONTRACT_EXTRA_LINE_CHANCE, 0.0, 100.0);
-        builder.pop();
-
         builder.push("mob_loot");
-        SPAWN_EGGS_ENABLE_FARMING = builder
-                .comment("Assume mobs with registered spawn eggs can be farmed industrially.",
-                        "Disable if the modpack cannot use spawn eggs to configure mob spawners.")
-                .define("spawnEggsEnableFarming", true);
         MOB_XP_VALUE_MULTIPLIER = builder
                 .comment("Scales the mob loot value budget: effective kill XP * mob tier * this multiplier.")
                 .defineInRange("xpValueMultiplier", Constants.DEFAULT_MOB_XP_VALUE_MULTIPLIER, 0.000001, Double.MAX_VALUE);
         builder.pop();
 
-        SERVER_SPEC = builder.build();
+        SPEC = builder.build();
     }
 
     private static boolean validateAnchorEntry(Object obj) {
@@ -223,31 +166,4 @@ public class Config {
         return false;
     }
 
-    private static boolean validateProcessingType(Object obj) {
-        return "manual".equals(obj) || "industrial".equals(obj);
-    }
-
-    private static boolean validateNamespaceRule(Object obj) {
-        return validateProcessingRule(obj, 1);
-    }
-
-    private static boolean validateRecipeTypeRule(Object obj) {
-        return validateProcessingRule(obj, 2);
-    }
-
-    private static boolean validateProcessingRule(Object obj, int tierIndex) {
-        if (!(obj instanceof String entry)) return false;
-
-        String[] parts = entry.split(":", -1);
-        if (parts.length != tierIndex + 2 || !validateProcessingType(parts[tierIndex + 1])) return false;
-        if (!parts[0].matches("[a-z0-9_.-]+")) return false;
-        if (tierIndex == 2 && (parts[1].isEmpty() || ResourceLocation.tryParse(parts[0] + ":" + parts[1]) == null)) return false;
-
-        try {
-            int tier = Integer.parseInt(parts[tierIndex]);
-            return tier >= 1 && tier <= 10;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
 }

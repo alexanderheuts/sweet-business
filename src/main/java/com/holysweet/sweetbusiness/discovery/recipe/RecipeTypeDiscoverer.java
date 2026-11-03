@@ -1,6 +1,6 @@
 package com.holysweet.sweetbusiness.discovery.recipe;
 
-import com.holysweet.sweetbusiness.config.Config;
+import com.holysweet.sweetbusiness.config.TierConfig;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -50,13 +50,13 @@ public final class RecipeTypeDiscoverer {
     }
 
     public static RecipeTypeProperties getDefaultProperties() {
-        return new RecipeTypeProperties(Config.GLOBAL_DEFAULT_TIER.get(), TierSource.GLOBAL_DEFAULT,
-                "global_default", "manual".equals(Config.GLOBAL_DEFAULT_TYPE.get()));
+        return new RecipeTypeProperties(TierConfig.GLOBAL_DEFAULT_TIER.get(), TierSource.GLOBAL_DEFAULT,
+                "global_default", "manual".equals(TierConfig.GLOBAL_DEFAULT_TYPE.get()));
     }
 
     private static Map<String, RecipeTypeProperties> parseNamespaceDefaults() {
         Map<String, RecipeTypeProperties> defaults = new HashMap<>();
-        for (String entry : Config.NAMESPACE_DEFAULTS.get()) {
+        for (String entry : TierConfig.NAMESPACE_DEFAULTS.get()) {
             String[] parts = entry.split(":", -1);
             defaults.put(parts[0], parseProperties(parts, 1, TierSource.NAMESPACE, parts[0]));
         }
@@ -65,7 +65,7 @@ public final class RecipeTypeDiscoverer {
 
     private static Map<ResourceLocation, RecipeTypeProperties> parseOverrides() {
         Map<ResourceLocation, RecipeTypeProperties> overrides = new HashMap<>();
-        for (String entry : Config.RECIPE_TYPE_OVERRIDES.get()) {
+        for (String entry : TierConfig.RECIPE_TYPE_OVERRIDES.get()) {
             String[] parts = entry.split(":", -1);
             ResourceLocation id = ResourceLocation.fromNamespaceAndPath(parts[0], parts[1]);
             overrides.put(id, parseProperties(parts, 2, TierSource.OVERRIDE, id.toString()));

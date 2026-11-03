@@ -1,6 +1,6 @@
 package com.holysweet.sweetbusiness.valuation.worldgen;
 
-import com.holysweet.sweetbusiness.config.Config;
+import com.holysweet.sweetbusiness.config.ValuationConfig;
 import com.holysweet.sweetbusiness.evaluation.worldgen.TerrainClassifier;
 import com.holysweet.sweetbusiness.evaluation.block.TierResolver;
 import com.mojang.logging.LogUtils;
@@ -26,7 +26,7 @@ public final class ChunkStandardEvaluator {
         Map<Block, Double> finalValues = new HashMap<>();
         Map<Block, Double> fancyVolumes = new HashMap<>();
 
-        double boringBlockValue = Config.TERRAIN_BASELINE.get();
+        double boringBlockValue = ValuationConfig.TERRAIN_BASELINE.get();
 
         // Structural terrain is not necessarily represented by an ore feature.
         for (Block block : BuiltInRegistries.BLOCK) {
