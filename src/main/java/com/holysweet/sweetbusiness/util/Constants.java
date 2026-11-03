@@ -10,6 +10,7 @@ public final class Constants {
     public static final int MOB_LOOT_SIMULATION_ITERATIONS = 1000;
     public static final int CROP_LOOT_SIMULATION_ITERATIONS = 1000;
     public static final int GRASS_LOOT_SIMULATION_ITERATIONS = 1000;
+    public static final double DEFAULT_CROP_BASELINE = 0.01;
     public static final double DEFAULT_MOB_XP_VALUE_MULTIPLIER = 1.0;
 
     // Contract details

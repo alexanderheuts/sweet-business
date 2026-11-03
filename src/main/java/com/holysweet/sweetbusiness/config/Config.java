@@ -12,6 +12,7 @@ public class Config {
     public static final ModConfigSpec SERVER_SPEC;
 
     public static final ModConfigSpec.DoubleValue TERRAIN_BASELINE;
+    public static final ModConfigSpec.DoubleValue CROP_BASELINE;
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_ITEMS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_TAGS;
@@ -44,6 +45,11 @@ public class Config {
                         "Keep this low so dirt/stone doesn't rival the value of ores.")
                 .defineInRange("terrainBaseline", 0.002, 0.000001, 1.0);
 
+        CROP_BASELINE = builder
+                .comment("Wheat-seed reference value for naturally sourced crop planting items and harvests.",
+                        "Applies per item, independent of harvest yield. Explicit item and tag overrides take precedence.")
+                .defineInRange("cropBaseline", Constants.DEFAULT_CROP_BASELINE, 0.000001, (double) Float.MAX_VALUE);
+
         BASE_ITEMS = builder
                 .comment("Define base individual items, starting values, and optional tech levels.",
                         "Format: 'namespace:item_id=value;techLevel' (Tech level is optional, defaults to 1)")
@@ -67,7 +73,6 @@ public class Config {
                                 "minecraft:bamboo=0.1",
                                 "minecraft:cocoa_beans=0.1",
                                 "minecraft:sweet_berries=0.1",
-                                "minecraft:wheat_seeds=0.1",
                                 "minecraft:pumpkin_seeds=0.1",
                                 "minecraft:melon_seeds=0.1",
                                 "minecraft:beetroot_seeds=0.1",

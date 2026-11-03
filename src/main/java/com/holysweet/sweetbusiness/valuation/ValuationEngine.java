@@ -19,8 +19,14 @@ import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer;
 import com.holysweet.sweetbusiness.discovery.worldgen.WorldGenDiscoverer;
 import com.holysweet.sweetbusiness.discovery.worldgen.OreBlockDiscoverer;
 import com.holysweet.sweetbusiness.evaluation.worldgen.OreVolumeEvaluator;
+import com.holysweet.sweetbusiness.discovery.renewable.CropDiscoverer;
+import com.holysweet.sweetbusiness.discovery.worldgen.BlockPlacementDiscoverer;
+import com.holysweet.sweetbusiness.evaluation.renewable.CropEvaluator;
+import com.holysweet.sweetbusiness.evaluation.renewable.CropEvaluator.CropEvaluation;
+import com.holysweet.sweetbusiness.valuation.renewable.CropValuator;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
@@ -114,11 +120,17 @@ public class ValuationEngine {
         seedAnchors();
 
         // Handle block drops as initial seed (i.e. redstone ore -> redstone)
-        Set<Item> worldgenAnchors = evaluateBlockDrops(server);
+        var worldgen = WorldGenDiscoverer.discoverFeatures(server);
+        Set<Item> worldgenAnchors = evaluateBlockDrops(server, worldgen);
+        var placements = BlockPlacementDiscoverer.discoverBlocks(server.registryAccess(), worldgen);
+        var crops = CropEvaluator.evaluateCrops(CropDiscoverer.discoverCrops(server.overworld(), placements));
+        var cropAnchors = CropValuator.valueNaturalCrops(crops, Config.CROP_BASELINE.get().floatValue());
+        mergeCropValues(cropAnchors, worldgenAnchors);
+        worldgenAnchors.addAll(cropAnchors.keySet());
         evaluateEntityDrops(server, worldgenAnchors, entityDiscovery.properties());
 
         RegistryAccess registryAccess = server.registryAccess();
-        int iteration = runValuationLoop(server, registryAccess);
+        int iteration = runValuationLoop(server, registryAccess, crops, cropAnchors.keySet(), worldgenAnchors);
 
         int totalItems = net.minecraft.core.registries.BuiltInRegistries.ITEM.size();
         int unknownItems = totalItems - itemValues.size();
@@ -192,9 +204,8 @@ public class ValuationEngine {
         }
     }
 
-    private Set<Item> evaluateBlockDrops(MinecraftServer server) {
+    private Set<Item> evaluateBlockDrops(MinecraftServer server, WorldGenDiscoverer.DiscoveryResult worldgen) {
         Set<Item> worldgenAnchors = new HashSet<>();
-        var worldgen = WorldGenDiscoverer.discoverFeatures(server);
         var oreBlocks = OreBlockDiscoverer.discoverBlocks(worldgen);
         Map<Block, Double> oreVolumes = OreVolumeEvaluator.evaluateVolumes(worldgen, oreBlocks);
         Map<Block, Double> blockValues = ChunkStandardEvaluator.calculateAnchorValues(oreVolumes);
@@ -277,16 +288,54 @@ public class ValuationEngine {
         });
     }
 
-    private int runValuationLoop(MinecraftServer server, RegistryAccess registryAccess) {
+    private boolean mergeCropValues(Map<Item, ItemValuation> candidates, Set<Item> anchors) {
+        boolean changed = false;
+        for (var entry : candidates.entrySet()) {
+            Item item = entry.getKey();
+            ItemValuation candidate = entry.getValue();
+            ItemValuation existing = itemValues.get(item);
+            ItemValuation merged = existing;
+            if (existing == null) {
+                merged = candidate;
+            } else if (existing.isConfigOverride()) {
+                if (!candidate.isConfigOverride() && (existing.calculatedValue() <= 0
+                        || candidate.value() < existing.calculatedValue() - 0.00001f)) {
+                    merged = existing.withCalculatedValue(candidate.value());
+                }
+            } else if (!anchors.contains(item) && (candidate.value() < existing.value() - 0.00001f
+                    || (candidate.value() == existing.value() && candidate.techLevel() < existing.techLevel()))) {
+                merged = candidate;
+            }
+            merged = merged.withBulkFarmable(true);
+            if (!merged.equals(existing)) {
+                itemValues.put(item, merged);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private int runValuationLoop(MinecraftServer server, RegistryAccess registryAccess,
+                                Map<Item, CropEvaluation> crops, Set<Item> cropAnchors, Set<Item> worldgenAnchors) {
+        Set<Item> bulkCropItems = new HashSet<>(crops.keySet());
+        crops.values().forEach(crop -> bulkCropItems.addAll(crop.harvestItems()));
+        Set<ResourceLocation> seedRecipes = new HashSet<>();
+        crops.values().forEach(crop -> seedRecipes.addAll(crop.seedRecipes()));
         boolean changed = true;
         int iteration = 0;
 
         while (changed && iteration < Constants.ENGINE_MAX_ITERATIONS) {
-            changed = false;
+            changed = mergeCropValues(CropValuator.valueHarvests(crops, itemValues), worldgenAnchors);
             iteration++;
 
             for (RecipeHolder<?> holder : server.getRecipeManager().getRecipes()) {
-                if (evaluateRecipe(holder, registryAccess)) {
+                // Seed multiplication must not repeatedly discount an already valued growing cycle.
+                if (seedRecipes.contains(holder.id())) {
+                    Item result = holder.value().getResultItem(registryAccess).getItem();
+                    ItemValuation existing = itemValues.get(result);
+                    if (existing != null && existing.value() > 0) continue;
+                }
+                if (evaluateRecipe(holder, registryAccess, cropAnchors, bulkCropItems)) {
                     changed = true;
                 }
             }
@@ -294,11 +343,14 @@ public class ValuationEngine {
         return iteration;
     }
 
-    private boolean evaluateRecipe(RecipeHolder<?> holder, RegistryAccess registryAccess) {
+    private boolean evaluateRecipe(RecipeHolder<?> holder, RegistryAccess registryAccess,
+                                   Set<Item> cropAnchors, Set<Item> bulkCropItems) {
         ItemStack resultStack = holder.value().getResultItem(registryAccess);
         if (resultStack.isEmpty()) return false;
 
         Item resultItem = resultStack.getItem();
+        ItemValuation current = itemValues.get(resultItem);
+        if (cropAnchors.contains(resultItem) && current != null && !current.isConfigOverride()) return false;
         RecipeType<?> type = holder.value().getType();
 
         // 1. Resolve processing properties
@@ -336,6 +388,7 @@ public class ValuationEngine {
             return false;
         }
 
+        if (bulkCropItems.contains(resultItem)) isRecipeBulkFarmable = true;
         float finalValue = (float) getProcessingTax(type).calculateUnitValue(totalValue, resultStack.getCount());
         int newDepth = maxIngredientDepth + 1;
 
