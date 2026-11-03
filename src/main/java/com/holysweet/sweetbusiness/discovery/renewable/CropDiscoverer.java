@@ -1,7 +1,7 @@
 package com.holysweet.sweetbusiness.discovery.renewable;
 
 import com.holysweet.sweetbusiness.util.Constants;
-import com.holysweet.sweetbusiness.discovery.loot.LootSimulator;
+import com.holysweet.sweetbusiness.discovery.simulation.BlockLootSimulator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.ResourceLocation;
@@ -13,11 +13,7 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.LootTable;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -72,14 +68,8 @@ public final class CropDiscoverer {
     private static CropProperties discoverCrop(ServerLevel level, CropBlock crop) {
         BlockState matureState = crop.getStateForAge(crop.getMaxAge());
         LootTable table = level.getServer().reloadableRegistries().getLootTable(crop.getLootTable());
-        LootParams params = new LootParams.Builder(level)
-                .withParameter(LootContextParams.ORIGIN, Vec3.ZERO)
-                .withParameter(LootContextParams.BLOCK_STATE, matureState)
-                .withParameter(LootContextParams.TOOL, ItemStack.EMPTY)
-                .withLuck(0.0F)
-                .create(LootContextParamSets.BLOCK);
-        Map<Item, Double> expectedDrops = LootSimulator.getInstance().simulate(
-                table, params, Constants.CROP_LOOT_SIMULATION_ITERATIONS);
+        Map<Item, Double> expectedDrops = BlockLootSimulator.simulate(
+                level, table, matureState, ItemStack.EMPTY, Constants.CROP_LOOT_SIMULATION_ITERATIONS);
         return new CropProperties(crop, matureState, expectedDrops, Set.of());
     }
 

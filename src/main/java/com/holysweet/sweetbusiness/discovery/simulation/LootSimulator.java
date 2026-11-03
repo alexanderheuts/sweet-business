@@ -1,4 +1,4 @@
-package com.holysweet.sweetbusiness.discovery.loot;
+package com.holysweet.sweetbusiness.discovery.simulation;
 
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;

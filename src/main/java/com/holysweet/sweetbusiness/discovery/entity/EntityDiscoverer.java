@@ -1,12 +1,11 @@
 package com.holysweet.sweetbusiness.discovery.entity;
 
 import com.holysweet.sweetbusiness.util.Constants;
-import com.holysweet.sweetbusiness.util.Statistics;
+import com.holysweet.sweetbusiness.discovery.simulation.EntityXpSimulator;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.FlyingMob;
 import net.minecraft.world.entity.Mob;
@@ -79,22 +78,13 @@ public final class EntityDiscoverer {
                 properties.put(type, new EntityProperties(mob instanceof Enemy,
                         type.is(Tags.EntityTypes.BOSSES), overworldSpawns.contains(type),
                         isFlying(mob), isSwimming(mob), mob.getAttributeBaseValue(Attributes.MAX_HEALTH),
-                        simulateMedianXp(mob, server.overworld()), hasLootDefined(lootTable, server), lootTableId, lootTable,
+                        EntityXpSimulator.simulateMedianXp(mob, server.overworld(), Constants.MOB_XP_SIMULATION_ITERATIONS), hasLootDefined(lootTable, server), lootTableId, lootTable,
                         SpawnEggItem.byId(type) != null));
             } catch (RuntimeException | LinkageError exception) {
                 failures.put(type, exception.getClass().getName() + ": " + exception.getMessage());
             }
         }
         return new DiscoveryResult(properties, failures);
-    }
-
-    private static double simulateMedianXp(Mob mob, ServerLevel level) {
-        double[] samples = new double[Constants.MOB_XP_SIMULATION_ITERATIONS];
-        for (int iteration = 0; iteration < samples.length; iteration++) {
-            // No killer means no killer equipment or enchantment bonuses; no death or XP-drop events are fired.
-            samples[iteration] = mob.getExperienceReward(level, null);
-        }
-        return Statistics.median(samples);
     }
 
     private static boolean hasLootDefined(LootTable table, MinecraftServer server) {
