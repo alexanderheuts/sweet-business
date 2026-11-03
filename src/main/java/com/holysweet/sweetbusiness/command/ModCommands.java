@@ -16,6 +16,7 @@ public class ModCommands {
                 .then(LedgerCommand.register())
                 .then(ContractCommand.register())
                 .then(EntitiesCommand.register())
+                .then(ExportCommand.register())
         );
     }
 }
