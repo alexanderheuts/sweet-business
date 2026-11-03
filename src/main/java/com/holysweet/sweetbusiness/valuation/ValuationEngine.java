@@ -4,6 +4,7 @@ import com.holysweet.sweetbusiness.valuation.block.BlockDropEvaluator;
 import com.holysweet.sweetbusiness.valuation.worldgen.ChunkStandardEvaluator;
 import com.holysweet.sweetbusiness.valuation.entity.EntityDropEvaluator;
 import com.holysweet.sweetbusiness.evaluation.entity.EntityTierEvaluator;
+import com.holysweet.sweetbusiness.evaluation.entity.EntityEvaluator;
 import com.holysweet.sweetbusiness.valuation.recipe.ProcessingTax;
 
 import com.holysweet.sweetbusiness.config.Config;
@@ -12,6 +13,7 @@ import com.holysweet.sweetbusiness.util.TagResolver;
 import com.holysweet.sweetbusiness.evaluation.block.TierResolver;
 import com.holysweet.sweetbusiness.discovery.block.BlockDropDiscoverer;
 import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer;
+import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer.EntityProperties;
 import com.holysweet.sweetbusiness.discovery.entity.EntityLootDiscoverer;
 import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer;
 import com.holysweet.sweetbusiness.discovery.worldgen.WorldGenDiscoverer;
@@ -102,7 +104,7 @@ public class ValuationEngine {
         itemValues.clear();
 
         var entityDiscovery = EntityDiscoverer.discoverEntities(server);
-        entityTiers = EntityTierEvaluator.calculateTiers(entityDiscovery, Config.SPAWN_EGGS_ENABLE_FARMING.get());
+        entityTiers = EntityEvaluator.evaluateEntities(entityDiscovery, Config.SPAWN_EGGS_ENABLE_FARMING.get());
         unidentifiedEntities = entityDiscovery.failures();
 
         // Load processing tiers and manual flags mapped from Config
@@ -113,7 +115,7 @@ public class ValuationEngine {
 
         // Handle block drops as initial seed (i.e. redstone ore -> redstone)
         Set<Item> worldgenAnchors = evaluateBlockDrops(server);
-        evaluateEntityDrops(server, worldgenAnchors);
+        evaluateEntityDrops(server, worldgenAnchors, entityDiscovery.properties());
 
         RegistryAccess registryAccess = server.registryAccess();
         int iteration = runValuationLoop(server, registryAccess);
@@ -249,8 +251,9 @@ public class ValuationEngine {
         return worldgenAnchors;
     }
 
-    private void evaluateEntityDrops(MinecraftServer server, Set<Item> worldgenAnchors) {
-        var discovery = EntityLootDiscoverer.discoverLoot(server, entityTiers);
+    private void evaluateEntityDrops(MinecraftServer server, Set<Item> worldgenAnchors,
+                                     Map<EntityType<?>, EntityProperties> entities) {
+        var discovery = EntityLootDiscoverer.discoverLoot(server, entities);
         entityDrops = discovery.expectedDrops();
         var anchors = EntityDropEvaluator.evaluateDrops(entityTiers, discovery, Config.MOB_XP_VALUE_MULTIPLIER.get());
         anchors.forEach((item, candidate) -> {

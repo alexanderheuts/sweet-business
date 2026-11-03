@@ -2,7 +2,7 @@ package com.holysweet.sweetbusiness.discovery.entity;
 
 import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.discovery.loot.LootSimulator;
-import com.holysweet.sweetbusiness.evaluation.entity.EntityTierEvaluator.EntityTier;
+import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer.EntityProperties;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -33,17 +33,17 @@ public final class EntityLootDiscoverer {
         }
     }
 
-    public static DiscoveryResult discoverLoot(MinecraftServer server, Map<EntityType<?>, EntityTier> entityTiers) {
+    public static DiscoveryResult discoverLoot(MinecraftServer server, Map<EntityType<?>, EntityProperties> entities) {
         ServerLevel level = server.overworld();
         Map<EntityType<?>, Map<Item, Double>> expectedDrops = new HashMap<>();
         Map<EntityType<?>, String> failures = new HashMap<>();
         UUID killerId = UUID.nameUUIDFromBytes("sweetbusiness:loot_simulator".getBytes(StandardCharsets.UTF_8));
         FakePlayer killer = new FakePlayer(level, new GameProfile(killerId, "[SweetBusiness]"));
 
-        for (var entry : entityTiers.entrySet()) {
+        for (var entry : entities.entrySet()) {
             EntityType<?> type = entry.getKey();
-            EntityTier tier = entry.getValue();
-            if (!tier.hasLootTable()) continue;
+            EntityProperties properties = entry.getValue();
+            if (!properties.hasLootTable()) continue;
 
             try {
                 if (!(type.create(level) instanceof Mob mob)) {
@@ -52,7 +52,7 @@ public final class EntityLootDiscoverer {
                 }
                 LootParams params = createLootParams(level, mob, killer);
                 expectedDrops.put(type, LootSimulator.getInstance().simulate(
-                        tier.lootTable(), params, Constants.MOB_LOOT_SIMULATION_ITERATIONS));
+                        properties.lootTable(), params, Constants.MOB_LOOT_SIMULATION_ITERATIONS));
             } catch (RuntimeException | LinkageError exception) {
                 failures.put(type, exception.getClass().getName() + ": " + exception.getMessage());
             }
