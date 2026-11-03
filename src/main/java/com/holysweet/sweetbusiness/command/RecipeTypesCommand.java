@@ -1,8 +1,8 @@
 package com.holysweet.sweetbusiness.command;
 
 import com.holysweet.sweetbusiness.valuation.ValuationEngine;
-import com.holysweet.sweetbusiness.valuation.discovery.RecipeTypeDiscoverer.RecipeTypeProperties;
-import com.holysweet.sweetbusiness.valuation.discovery.RecipeTypeDiscoverer.TierSource;
+import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer.RecipeTypeProperties;
+import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer.TierSource;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;

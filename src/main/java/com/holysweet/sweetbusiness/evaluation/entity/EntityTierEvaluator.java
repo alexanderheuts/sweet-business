@@ -1,9 +1,9 @@
-package com.holysweet.sweetbusiness.valuation;
+package com.holysweet.sweetbusiness.evaluation.entity;
 
 import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.Statistics;
-import com.holysweet.sweetbusiness.valuation.discovery.EntityDiscoverer.EntityProperties;
-import com.holysweet.sweetbusiness.valuation.discovery.EntityDiscoverer.DiscoveryResult;
+import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer.EntityProperties;
+import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer.DiscoveryResult;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;

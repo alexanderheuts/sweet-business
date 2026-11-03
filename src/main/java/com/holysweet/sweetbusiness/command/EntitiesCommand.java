@@ -1,7 +1,7 @@
 package com.holysweet.sweetbusiness.command;
 
 import com.holysweet.sweetbusiness.util.Constants;
-import com.holysweet.sweetbusiness.valuation.EntityTierEvaluator.EntityTier;
+import com.holysweet.sweetbusiness.evaluation.entity.EntityTierEvaluator.EntityTier;
 import com.holysweet.sweetbusiness.valuation.ValuationEngine;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;

@@ -1,4 +1,4 @@
-package com.holysweet.sweetbusiness.valuation.discovery;
+package com.holysweet.sweetbusiness.discovery.worldgen;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;

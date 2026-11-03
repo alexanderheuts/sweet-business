@@ -1,4 +1,4 @@
-package com.holysweet.sweetbusiness.util;
+package com.holysweet.sweetbusiness.evaluation.block;
 
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.tags.BlockTags;

@@ -1,8 +1,8 @@
-package com.holysweet.sweetbusiness.valuation;
+package com.holysweet.sweetbusiness.valuation.worldgen;
 
 import com.holysweet.sweetbusiness.config.Config;
-import com.holysweet.sweetbusiness.util.TerrainClassifier;
-import com.holysweet.sweetbusiness.util.TierResolver;
+import com.holysweet.sweetbusiness.evaluation.worldgen.TerrainClassifier;
+import com.holysweet.sweetbusiness.evaluation.block.TierResolver;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;

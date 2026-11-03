@@ -1,4 +1,4 @@
-package com.holysweet.sweetbusiness.valuation.discovery;
+package com.holysweet.sweetbusiness.discovery.recipe;
 
 import com.holysweet.sweetbusiness.config.Config;
 import net.minecraft.core.registries.Registries;

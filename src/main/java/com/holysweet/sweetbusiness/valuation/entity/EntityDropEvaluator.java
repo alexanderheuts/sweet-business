@@ -1,7 +1,9 @@
-package com.holysweet.sweetbusiness.valuation;
+package com.holysweet.sweetbusiness.valuation.entity;
 
-import com.holysweet.sweetbusiness.valuation.EntityTierEvaluator.EntityTier;
-import com.holysweet.sweetbusiness.valuation.discovery.EntityLootDiscoverer.DiscoveryResult;
+import com.holysweet.sweetbusiness.valuation.ItemValuation;
+
+import com.holysweet.sweetbusiness.evaluation.entity.EntityTierEvaluator.EntityTier;
+import com.holysweet.sweetbusiness.discovery.entity.EntityLootDiscoverer.DiscoveryResult;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.EntityType;

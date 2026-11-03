@@ -1,8 +1,8 @@
-package com.holysweet.sweetbusiness.valuation.discovery;
+package com.holysweet.sweetbusiness.discovery.entity;
 
 import com.holysweet.sweetbusiness.util.Constants;
-import com.holysweet.sweetbusiness.util.LootSimulator;
-import com.holysweet.sweetbusiness.valuation.EntityTierEvaluator.EntityTier;
+import com.holysweet.sweetbusiness.discovery.loot.LootSimulator;
+import com.holysweet.sweetbusiness.evaluation.entity.EntityTierEvaluator.EntityTier;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;

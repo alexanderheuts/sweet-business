@@ -1,4 +1,4 @@
-package com.holysweet.sweetbusiness.valuation.discovery;
+package com.holysweet.sweetbusiness.discovery.entity;
 
 import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.Statistics;

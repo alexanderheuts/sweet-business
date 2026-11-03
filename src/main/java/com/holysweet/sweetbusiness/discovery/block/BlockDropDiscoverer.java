@@ -1,6 +1,6 @@
-package com.holysweet.sweetbusiness.valuation.discovery;
+package com.holysweet.sweetbusiness.discovery.block;
 
-import com.holysweet.sweetbusiness.util.LootSimulator;
+import com.holysweet.sweetbusiness.discovery.loot.LootSimulator;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;

@@ -1,4 +1,4 @@
-package com.holysweet.sweetbusiness.valuation;
+package com.holysweet.sweetbusiness.valuation.recipe;
 
 public record ProcessingTax(double basePercentage, double tierPercentage, double manualPercentage) {
 

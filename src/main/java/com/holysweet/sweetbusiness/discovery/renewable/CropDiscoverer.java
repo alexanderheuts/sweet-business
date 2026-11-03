@@ -1,7 +1,7 @@
-package com.holysweet.sweetbusiness.valuation.discovery;
+package com.holysweet.sweetbusiness.discovery.renewable;
 
 import com.holysweet.sweetbusiness.util.Constants;
-import com.holysweet.sweetbusiness.util.LootSimulator;
+import com.holysweet.sweetbusiness.discovery.loot.LootSimulator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.ResourceLocation;

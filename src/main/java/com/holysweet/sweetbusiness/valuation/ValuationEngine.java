@@ -1,14 +1,20 @@
 package com.holysweet.sweetbusiness.valuation;
 
+import com.holysweet.sweetbusiness.valuation.block.BlockDropEvaluator;
+import com.holysweet.sweetbusiness.valuation.worldgen.ChunkStandardEvaluator;
+import com.holysweet.sweetbusiness.valuation.entity.EntityDropEvaluator;
+import com.holysweet.sweetbusiness.evaluation.entity.EntityTierEvaluator;
+import com.holysweet.sweetbusiness.valuation.recipe.ProcessingTax;
+
 import com.holysweet.sweetbusiness.config.Config;
 import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.TagResolver;
-import com.holysweet.sweetbusiness.util.TierResolver;
-import com.holysweet.sweetbusiness.valuation.discovery.BlockDropDiscoverer;
-import com.holysweet.sweetbusiness.valuation.discovery.EntityDiscoverer;
-import com.holysweet.sweetbusiness.valuation.discovery.EntityLootDiscoverer;
-import com.holysweet.sweetbusiness.valuation.discovery.RecipeTypeDiscoverer;
-import com.holysweet.sweetbusiness.valuation.discovery.WorldGenVolumeDiscoverer;
+import com.holysweet.sweetbusiness.evaluation.block.TierResolver;
+import com.holysweet.sweetbusiness.discovery.block.BlockDropDiscoverer;
+import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer;
+import com.holysweet.sweetbusiness.discovery.entity.EntityLootDiscoverer;
+import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer;
+import com.holysweet.sweetbusiness.discovery.worldgen.WorldGenVolumeDiscoverer;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;

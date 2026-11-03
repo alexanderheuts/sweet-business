@@ -1,4 +1,4 @@
-package com.holysweet.sweetbusiness.util;
+package com.holysweet.sweetbusiness.evaluation.worldgen;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.BlockTags;

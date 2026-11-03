@@ -1,4 +1,4 @@
-package com.holysweet.sweetbusiness.valuation;
+package com.holysweet.sweetbusiness.valuation.block;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
