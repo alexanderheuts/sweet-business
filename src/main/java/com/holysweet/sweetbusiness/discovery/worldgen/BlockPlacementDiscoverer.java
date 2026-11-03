@@ -1,9 +1,6 @@
 package com.holysweet.sweetbusiness.discovery.worldgen;
 
-import com.google.gson.JsonElement;
-import com.mojang.serialization.JsonOps;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
@@ -16,6 +13,7 @@ import net.minecraft.world.level.levelgen.feature.configurations.RandomPatchConf
 import net.minecraft.world.level.levelgen.feature.configurations.ReplaceBlockConfiguration;
 import net.minecraft.world.level.levelgen.feature.configurations.SimpleBlockConfiguration;
 import net.minecraft.world.level.levelgen.feature.configurations.SimpleRandomFeatureConfiguration;
+import net.minecraft.world.level.levelgen.feature.configurations.TreeConfiguration;
 import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 
@@ -92,6 +90,11 @@ public final class BlockPlacementDiscoverer {
             var config = configured.config();
             // Patches and selectors lead to child features; leaf configurations describe the blocks placed.
             switch (config) {
+                case TreeConfiguration ignored -> {
+                    var tree = TreeFeatureDiscoverer.discoverTree(registries, configured);
+                    tree.contents().allStates().forEach(state -> addSource(state.getBlock(), configured));
+                    failures.addAll(tree.failures());
+                }
                 case RandomPatchConfiguration patch -> discover(patch.feature().value());
                 case RandomFeatureConfiguration selector -> {
                     // A guaranteed choice makes later choices and the default unreachable.
@@ -120,14 +123,8 @@ public final class BlockPlacementDiscoverer {
 
         private void discoverProvider(BlockStateProvider provider, ConfiguredFeature<?, ?> configured) {
             // Read declared states through the codec so rare provider outputs are not missed by sampling.
-            JsonElement definition = BlockStateProvider.CODEC.encodeStart(
-                    registries.createSerializationContext(JsonOps.INSTANCE), provider).getOrThrow();
-            Set<Block> blocks = new HashSet<>();
-            collectProviderBlocks(definition, blocks);
-            if (blocks.isEmpty()) {
-                failures.add("No block states identified in provider: " + provider.getClass().getName());
-            }
-            blocks.forEach(block -> addSource(block, configured));
+            BlockStateProviderDiscoverer.discoverStates(registries, provider)
+                    .forEach(state -> addSource(state.getBlock(), configured));
         }
 
         private void addSource(Block block, ConfiguredFeature<?, ?> configured) {
@@ -140,21 +137,4 @@ public final class BlockPlacementDiscoverer {
         }
     }
 
-    private static void collectProviderBlocks(JsonElement element, Set<Block> blocks) {
-        if (element.isJsonArray()) {
-            element.getAsJsonArray().forEach(child -> collectProviderBlocks(child, blocks));
-        } else if (element.isJsonObject()) {
-            var object = element.getAsJsonObject();
-            if (object.has("weight") && object.get("weight").getAsInt() <= 0) return;
-            // Serialized block states use "Name"; enclosing objects contain provider options or nested states.
-            if (object.has("Name")) {
-                ResourceLocation id = ResourceLocation.parse(object.get("Name").getAsString());
-                Block block = BuiltInRegistries.BLOCK.getOptional(id)
-                        .orElseThrow(() -> new IllegalStateException("Unknown provider block: " + id));
-                blocks.add(block);
-            } else {
-                object.entrySet().forEach(entry -> collectProviderBlocks(entry.getValue(), blocks));
-            }
-        }
-    }
 }

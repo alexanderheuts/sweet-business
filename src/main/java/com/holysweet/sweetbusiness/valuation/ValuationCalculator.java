@@ -6,6 +6,8 @@ import com.holysweet.sweetbusiness.valuation.EconomyInputs.RecipeInput;
 import com.holysweet.sweetbusiness.valuation.EconomyInputs.IngredientInput;
 import com.holysweet.sweetbusiness.valuation.EconomyResult.AnchorSource;
 import com.holysweet.sweetbusiness.valuation.renewable.CropValuator;
+import com.holysweet.sweetbusiness.valuation.renewable.TreeValuator;
+import com.holysweet.sweetbusiness.valuation.renewable.TreeValuator.TreeValue;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -39,11 +41,17 @@ public final class ValuationCalculator {
             });
         }
         Set<Item> worldgenAnchors = seedBlockAnchors();
-        mergeCropValues(inputs.naturalCropAnchors(), worldgenAnchors);
+        mergeRenewableValues(inputs.naturalCropAnchors(), worldgenAnchors);
         recordNaturalCropSources(inputs.crops());
         worldgenAnchors.addAll(inputs.naturalCropAnchors().keySet());
+        mergeTreeValues(inputs.naturalTreeAnchors(), worldgenAnchors);
+        inputs.naturalTreeAnchors().forEach((item, anchor) -> anchorSources.putIfAbsent(item,
+                new AnchorSource("tree", BuiltInRegistries.ITEM.getKey(anchor.plantingItem()).toString())));
+        worldgenAnchors.addAll(inputs.naturalTreeAnchors().keySet());
         seedMobAnchors(worldgenAnchors);
-        int iterations = runValuationLoop(inputs.crops(), inputs.naturalCropAnchors().keySet(), worldgenAnchors);
+        Set<Item> renewableAnchors = new HashSet<>(inputs.naturalCropAnchors().keySet());
+        renewableAnchors.addAll(inputs.naturalTreeAnchors().keySet());
+        int iterations = runValuationLoop(inputs.crops(), renewableAnchors, worldgenAnchors);
         int unresolved = (int) inputs.recipes().stream()
                 .filter(recipe -> !itemValues.getOrDefault(recipe.output(), ItemValuation.UNKNOWN).isKnown()).count();
         return new EconomyResult(itemValues, anchorSources, iterations, unresolved);
@@ -105,7 +113,7 @@ public final class ValuationCalculator {
         });
     }
 
-    private boolean mergeCropValues(Map<Item, ItemValuation> candidates, Set<Item> anchors) {
+    private boolean mergeRenewableValues(Map<Item, ItemValuation> candidates, Set<Item> anchors) {
         boolean changed = false;
         for (var entry : candidates.entrySet()) {
             Item item = entry.getKey();
@@ -134,6 +142,12 @@ public final class ValuationCalculator {
         return changed;
     }
 
+    private boolean mergeTreeValues(Map<Item, TreeValue> candidates, Set<Item> anchors) {
+        Map<Item, ItemValuation> values = new HashMap<>();
+        candidates.forEach((item, candidate) -> values.put(item, candidate.valuation()));
+        return mergeRenewableValues(values, anchors);
+    }
+
     private void recordNaturalCropSources(Map<Item, CropEvaluation> crops) {
         crops.entrySet().stream()
                 .sorted(java.util.Comparator.comparing(entry -> BuiltInRegistries.ITEM.getKey(entry.getKey()).toString()))
@@ -145,16 +159,19 @@ public final class ValuationCalculator {
                 });
     }
 
-    private int runValuationLoop(Map<Item, CropEvaluation> crops, Set<Item> cropAnchors, Set<Item> worldgenAnchors) {
-        Set<Item> bulkCropItems = new HashSet<>(crops.keySet());
-        crops.values().forEach(crop -> bulkCropItems.addAll(crop.harvestItems()));
+    private int runValuationLoop(Map<Item, CropEvaluation> crops, Set<Item> renewableAnchors, Set<Item> worldgenAnchors) {
+        Set<Item> bulkRenewableItems = new HashSet<>(crops.keySet());
+        crops.values().forEach(crop -> bulkRenewableItems.addAll(crop.harvestItems()));
+        inputs.trees().values().forEach(tree -> bulkRenewableItems.addAll(tree.outputs().keySet()));
         Set<ResourceLocation> seedRecipes = new HashSet<>();
         crops.values().forEach(crop -> seedRecipes.addAll(crop.seedRecipes()));
+        inputs.recipes().stream().filter(this::isTreeSeedRecipe).forEach(recipe -> seedRecipes.add(recipe.id()));
         boolean changed = true;
         int iteration = 0;
 
         while (changed && iteration < Constants.ENGINE_MAX_ITERATIONS) {
-            changed = mergeCropValues(CropValuator.valueHarvests(crops, itemValues), worldgenAnchors);
+            changed = mergeRenewableValues(CropValuator.valueHarvests(crops, itemValues), worldgenAnchors);
+            changed |= mergeTreeValues(TreeValuator.valueHarvests(inputs.trees(), inputs.treeSettings(), itemValues), worldgenAnchors);
             iteration++;
 
             for (RecipeInput recipe : inputs.recipes()) {
@@ -164,7 +181,7 @@ public final class ValuationCalculator {
                     ItemValuation existing = itemValues.get(result);
                     if (existing != null && existing.value() > 0) continue;
                 }
-                if (evaluateRecipe(recipe, cropAnchors, bulkCropItems)) {
+                if (evaluateRecipe(recipe, renewableAnchors, bulkRenewableItems)) {
                     changed = true;
                 }
             }
@@ -172,10 +189,17 @@ public final class ValuationCalculator {
         return iteration;
     }
 
-    private boolean evaluateRecipe(RecipeInput recipe, Set<Item> cropAnchors, Set<Item> bulkCropItems) {
+    private boolean isTreeSeedRecipe(RecipeInput recipe) {
+        var tree = inputs.trees().get(recipe.output());
+        if (tree == null || recipe.ingredients().isEmpty()) return false;
+        return recipe.ingredients().stream().allMatch(ingredient -> ingredient.alternatives().stream()
+                .anyMatch(option -> option.item() != recipe.output() && tree.outputs().containsKey(option.item())));
+    }
+
+    private boolean evaluateRecipe(RecipeInput recipe, Set<Item> renewableAnchors, Set<Item> bulkRenewableItems) {
         Item resultItem = recipe.output();
         ItemValuation current = itemValues.get(resultItem);
-        if (cropAnchors.contains(resultItem) && current != null && !current.isConfigOverride()) return false;
+        if (renewableAnchors.contains(resultItem) && current != null && !current.isConfigOverride()) return false;
         RecipeType<?> type = recipe.type();
 
         // 1. Resolve processing properties
@@ -211,7 +235,7 @@ public final class ValuationCalculator {
             return false;
         }
 
-        if (bulkCropItems.contains(resultItem)) isRecipeBulkFarmable = true;
+        if (bulkRenewableItems.contains(resultItem)) isRecipeBulkFarmable = true;
         float finalValue = (float) inputs.processing().tax(type).calculateUnitValue(totalValue, recipe.outputCount());
         int newDepth = maxIngredientDepth + 1;
 

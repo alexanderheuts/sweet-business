@@ -3,17 +3,21 @@ package com.holysweet.sweetbusiness.valuation;
 import com.holysweet.sweetbusiness.config.ServerConfig;
 import com.holysweet.sweetbusiness.config.ValuationConfig;
 import com.holysweet.sweetbusiness.discovery.block.BlockDropDiscoverer;
+import com.holysweet.sweetbusiness.discovery.block.GrassDropDiscoverer;
 import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer;
 import com.holysweet.sweetbusiness.discovery.entity.EntityLootDiscoverer;
 import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer;
 import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer.RecipeTypeProperties;
 import com.holysweet.sweetbusiness.discovery.renewable.CropDiscoverer;
+import com.holysweet.sweetbusiness.discovery.renewable.TreeDiscoverer;
+import com.holysweet.sweetbusiness.discovery.worldgen.StructureBlockDiscoverer;
 import com.holysweet.sweetbusiness.discovery.worldgen.BlockPlacementDiscoverer;
 import com.holysweet.sweetbusiness.discovery.worldgen.OreBlockDiscoverer;
 import com.holysweet.sweetbusiness.discovery.worldgen.WorldGenDiscoverer;
 import com.holysweet.sweetbusiness.evaluation.block.TierResolver;
 import com.holysweet.sweetbusiness.evaluation.entity.EntityEvaluator;
 import com.holysweet.sweetbusiness.evaluation.renewable.CropEvaluator;
+import com.holysweet.sweetbusiness.evaluation.renewable.TreeEvaluator;
 import com.holysweet.sweetbusiness.evaluation.worldgen.OreVolumeEvaluator;
 import com.holysweet.sweetbusiness.evaluation.worldgen.TerrainClassifier;
 import com.holysweet.sweetbusiness.util.Constants;
@@ -28,10 +32,12 @@ import com.holysweet.sweetbusiness.valuation.EconomyResult.AnchorSource;
 import com.holysweet.sweetbusiness.valuation.block.BlockDropEvaluator;
 import com.holysweet.sweetbusiness.valuation.entity.EntityDropEvaluator;
 import com.holysweet.sweetbusiness.valuation.renewable.CropValuator;
+import com.holysweet.sweetbusiness.valuation.renewable.TreeValuator;
 import com.holysweet.sweetbusiness.valuation.worldgen.ChunkStandardEvaluator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.Recipe;
@@ -46,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.HashSet;
 
 public final class EconomyBuilder {
 
@@ -64,7 +71,9 @@ public final class EconomyBuilder {
         var worldgen = WorldGenDiscoverer.discoverFeatures(server);
         var blocks = prepareBlocks(server, worldgen);
         var placements = BlockPlacementDiscoverer.discoverBlocks(server.registryAccess(), worldgen);
-        var crops = CropEvaluator.evaluateCrops(CropDiscoverer.discoverCrops(server.overworld(), placements));
+        var grass = GrassDropDiscoverer.discoverDrops(server.overworld());
+        var structures = StructureBlockDiscoverer.discoverBlocks(server);
+        var crops = CropEvaluator.evaluateCrops(CropDiscoverer.discoverCrops(server.overworld(), placements, grass, structures));
         var cropAnchors = CropValuator.valueNaturalCrops(crops, ValuationConfig.CROP_BASELINE.get().floatValue());
         var entityLoot = EntityLootDiscoverer.discoverLoot(server, entityDiscovery.properties());
         var mobAnchors = EntityDropEvaluator.evaluateDrops(entityTiers, entityLoot, ValuationConfig.MOB_XP_VALUE_MULTIPLIER.get());
@@ -78,7 +87,18 @@ public final class EconomyBuilder {
                         captureIngredients(recipe)));
             }
         }
-        return new EconomyInputs(configuredAnchors, blocks, crops, cropAnchors, mobAnchors, entityTiers,
+        Set<Item> craftableItems = new HashSet<>();
+        recipes.forEach(recipe -> craftableItems.add(recipe.output()));
+        Set<Block> naturalBlocks = new HashSet<>(placements.sources().keySet());
+        naturalBlocks.addAll(structures.sources().keySet());
+        Set<ResourceLocation> naturalFeatures = new HashSet<>();
+        placements.sources().values().forEach(sources -> sources.forEach(source ->
+                source.configuredFeatureId().ifPresent(naturalFeatures::add)));
+        var trees = TreeEvaluator.evaluateTrees(TreeDiscoverer.discoverTrees(server.overworld()),
+                naturalBlocks, naturalFeatures, craftableItems);
+        var treeSettings = new TreeValuator.Settings(ValuationConfig.SAPLING_BASELINE.get(), ValuationConfig.TREE_WOOD_BASELINE.get());
+        var treeAnchors = TreeValuator.valueNaturalTrees(trees, treeSettings);
+        return new EconomyInputs(configuredAnchors, blocks, crops, cropAnchors, trees, treeAnchors, treeSettings, mobAnchors, entityTiers,
                 entityDiscovery.failures(), entityLoot.expectedDrops(), recipes, processing);
     }
 

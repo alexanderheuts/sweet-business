@@ -3,6 +3,9 @@ package com.holysweet.sweetbusiness.valuation;
 import com.holysweet.sweetbusiness.discovery.recipe.RecipeTypeDiscoverer.RecipeTypeProperties;
 import com.holysweet.sweetbusiness.evaluation.entity.EntityTierEvaluator.EntityTier;
 import com.holysweet.sweetbusiness.evaluation.renewable.CropEvaluator.CropEvaluation;
+import com.holysweet.sweetbusiness.evaluation.renewable.TreeEvaluator.TreeEvaluation;
+import com.holysweet.sweetbusiness.valuation.renewable.TreeValuator;
+import com.holysweet.sweetbusiness.valuation.renewable.TreeValuator.TreeValue;
 import com.holysweet.sweetbusiness.valuation.EconomyResult.AnchorSource;
 import com.holysweet.sweetbusiness.valuation.entity.EntityDropEvaluator.DropAnchor;
 import com.holysweet.sweetbusiness.valuation.recipe.ProcessingTax;
@@ -18,6 +21,8 @@ import java.util.Map;
 
 public record EconomyInputs(Map<Item, ConfiguredAnchor> configuredAnchors, List<BlockAnchors> blocks,
                             Map<Item, CropEvaluation> crops, Map<Item, ItemValuation> naturalCropAnchors,
+                            Map<Item, TreeEvaluation> trees, Map<Item, TreeValue> naturalTreeAnchors,
+                            TreeValuator.Settings treeSettings,
                             Map<Item, DropAnchor> mobAnchors, Map<EntityType<?>, EntityTier> entityTiers,
                             Map<EntityType<?>, String> unidentifiedEntities,
                             Map<EntityType<?>, Map<Item, Double>> entityDrops,
@@ -28,6 +33,8 @@ public record EconomyInputs(Map<Item, ConfiguredAnchor> configuredAnchors, List<
         blocks = List.copyOf(blocks);
         crops = Map.copyOf(crops);
         naturalCropAnchors = Map.copyOf(naturalCropAnchors);
+        trees = Map.copyOf(trees);
+        naturalTreeAnchors = Map.copyOf(naturalTreeAnchors);
         mobAnchors = Map.copyOf(mobAnchors);
         entityTiers = Map.copyOf(entityTiers);
         unidentifiedEntities = Map.copyOf(unidentifiedEntities);

@@ -12,6 +12,8 @@ public final class ValuationConfig {
     public static final ModConfigSpec SPEC;
     public static final ModConfigSpec.DoubleValue TERRAIN_BASELINE;
     public static final ModConfigSpec.DoubleValue CROP_BASELINE;
+    public static final ModConfigSpec.DoubleValue SAPLING_BASELINE;
+    public static final ModConfigSpec.DoubleValue TREE_WOOD_BASELINE;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_ITEMS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_TAGS;
     public static final ModConfigSpec.DoubleValue BASE_PROCESSING_BONUS;
@@ -40,6 +42,14 @@ public final class ValuationConfig {
                 .comment("Wheat-seed reference value for naturally sourced crop planting items and harvests.",
                         "Applies per item, independent of harvest yield. Explicit item and tag overrides take precedence.")
                 .defineInRange("cropBaseline", Constants.DEFAULT_CROP_BASELINE, 0.000001, (double) Float.MAX_VALUE);
+
+        SAPLING_BASELINE = builder
+                .comment("Per-item baseline for naturally sourced saplings and tree fruit.")
+                .defineInRange("saplingBaseline", Constants.DEFAULT_SAPLING_BASELINE, 0.000001, (double) Float.MAX_VALUE);
+        TREE_WOOD_BASELINE = builder
+                .comment("Per-item baseline for naturally sourced tree logs, sheared leaves, and roots.",
+                        "Recipe-derived trees scale woody outputs by treeWoodBaseline / saplingBaseline.")
+                .defineInRange("treeWoodBaseline", Constants.DEFAULT_TREE_WOOD_BASELINE, 0.000001, (double) Float.MAX_VALUE);
 
         BASE_ITEMS = builder
                 .comment("Define base individual items, starting values, and optional tech levels.",
