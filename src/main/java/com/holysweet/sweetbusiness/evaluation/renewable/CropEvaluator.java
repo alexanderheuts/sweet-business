@@ -56,5 +56,11 @@ public final class CropEvaluator {
                     "Incomplete worldgen source discovery for {}: {}",
                     feature.feature().unwrapKey().map(key -> key.location().toString()).orElse("inline"), reason)));
         }
+        if (!discovery.structureFailures().isEmpty()) {
+            LOGGER.warn("Crop structure source discovery incomplete for {} structures; see debug output for details",
+                    discovery.structureFailures().size());
+            discovery.structureFailures().forEach((id, reasons) -> reasons.forEach(reason ->
+                    LOGGER.debug("Incomplete structure source discovery for {}: {}", id, reason)));
+        }
     }
 }

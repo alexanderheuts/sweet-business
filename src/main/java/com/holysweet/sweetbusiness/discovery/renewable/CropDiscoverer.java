@@ -6,6 +6,8 @@ import com.holysweet.sweetbusiness.discovery.simulation.BlockLootSimulator;
 import com.holysweet.sweetbusiness.discovery.worldgen.BlockPlacementDiscoverer;
 import com.holysweet.sweetbusiness.discovery.worldgen.BlockPlacementDiscoverer.PlacementSource;
 import com.holysweet.sweetbusiness.discovery.worldgen.WorldGenDiscoverer;
+import com.holysweet.sweetbusiness.discovery.worldgen.StructureBlockDiscoverer;
+import com.holysweet.sweetbusiness.discovery.worldgen.StructureBlockDiscoverer.StructureSource;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.ResourceLocation;
@@ -32,12 +34,13 @@ public final class CropDiscoverer {
 
     public record CropProperties(CropBlock crop, BlockState matureState, Map<Item, Double> expectedDrops,
                                  Set<ResourceLocation> seedRecipes, Set<PlacementSource> worldgenSources,
-                                 Map<Block, Double> grassSources) {
+                                 Map<Block, Double> grassSources, Set<StructureSource> structureSources) {
         public CropProperties {
             expectedDrops = Map.copyOf(expectedDrops);
             seedRecipes = Set.copyOf(seedRecipes);
             worldgenSources = Set.copyOf(worldgenSources);
             grassSources = Map.copyOf(grassSources);
+            structureSources = Set.copyOf(structureSources);
         }
 
         public boolean dropsPlantingItem(Item plantingItem) {
@@ -45,12 +48,13 @@ public final class CropDiscoverer {
         }
 
         public boolean hasWorldgenSource() {
-            return !grassSources.isEmpty() || !worldgenSources.isEmpty();
+            return !grassSources.isEmpty() || !worldgenSources.isEmpty() || !structureSources.isEmpty();
         }
     }
 
     public record DiscoveryResult(Map<Item, CropProperties> crops, Map<Item, String> failures,
-                                  Map<PlacedFeature, Set<String>> worldgenFailures, Map<Block, String> grassFailures) {
+                                  Map<PlacedFeature, Set<String>> worldgenFailures, Map<Block, String> grassFailures,
+                                  Map<ResourceLocation, Set<String>> structureFailures) {
         public DiscoveryResult {
             crops = Map.copyOf(crops);
             failures = Map.copyOf(failures);
@@ -58,6 +62,9 @@ public final class CropDiscoverer {
             worldgenFailures.forEach((feature, reasons) -> snapshot.put(feature, Set.copyOf(reasons)));
             worldgenFailures = Map.copyOf(snapshot);
             grassFailures = Map.copyOf(grassFailures);
+            Map<ResourceLocation, Set<String>> structureSnapshot = new HashMap<>();
+            structureFailures.forEach((id, reasons) -> structureSnapshot.put(id, Set.copyOf(reasons)));
+            structureFailures = Map.copyOf(structureSnapshot);
         }
     }
 
@@ -73,6 +80,12 @@ public final class CropDiscoverer {
 
     public static DiscoveryResult discoverCrops(ServerLevel level, BlockPlacementDiscoverer.DiscoveryResult placements,
                                                 GrassDropDiscoverer.DiscoveryResult grass) {
+        return discoverCrops(level, placements, grass, StructureBlockDiscoverer.discoverBlocks(level.getServer()));
+    }
+
+    public static DiscoveryResult discoverCrops(ServerLevel level, BlockPlacementDiscoverer.DiscoveryResult placements,
+                                                GrassDropDiscoverer.DiscoveryResult grass,
+                                                StructureBlockDiscoverer.DiscoveryResult structures) {
         Map<Item, CropProperties> crops = new HashMap<>();
         Map<Item, String> failures = new HashMap<>();
         Map<CropBlock, CropProperties> discoveredBlocks = new HashMap<>();
@@ -87,16 +100,17 @@ public final class CropDiscoverer {
                         block -> discoverCrop(level, block, placements.sources().getOrDefault(block, Set.of())));
                 Map<Block, Double> grassSources = findGrassSources(item, grass);
                 properties = new CropProperties(crop, properties.matureState(), properties.expectedDrops(),
-                        properties.seedRecipes(), properties.worldgenSources(), grassSources);
+                        properties.seedRecipes(), properties.worldgenSources(), grassSources,
+                        structures.sources().getOrDefault(crop, Set.of()));
                 crops.put(item, properties);
                 Set<ResourceLocation> seedRecipes = findSeedRecipes(level, item, properties.expectedDrops());
                 crops.put(item, new CropProperties(crop, properties.matureState(), properties.expectedDrops(),
-                        seedRecipes, properties.worldgenSources(), grassSources));
+                        seedRecipes, properties.worldgenSources(), grassSources, properties.structureSources()));
             } catch (RuntimeException | LinkageError exception) {
                 failures.put(item, exception.getClass().getName() + ": " + exception.getMessage());
             }
         }
-        return new DiscoveryResult(crops, failures, placements.failures(), grass.failures());
+        return new DiscoveryResult(crops, failures, placements.failures(), grass.failures(), structures.failures());
     }
 
     private static CropProperties discoverCrop(ServerLevel level, CropBlock crop, Set<PlacementSource> worldgenSources) {
@@ -104,7 +118,7 @@ public final class CropDiscoverer {
         LootTable table = level.getServer().reloadableRegistries().getLootTable(crop.getLootTable());
         Map<Item, Double> expectedDrops = BlockLootSimulator.simulate(
                 level, table, matureState, ItemStack.EMPTY, Constants.CROP_LOOT_SIMULATION_ITERATIONS);
-        return new CropProperties(crop, matureState, expectedDrops, Set.of(), worldgenSources, Map.of());
+        return new CropProperties(crop, matureState, expectedDrops, Set.of(), worldgenSources, Map.of(), Set.of());
     }
 
     private static Map<Block, Double> findGrassSources(Item plantingItem, GrassDropDiscoverer.DiscoveryResult grass) {
