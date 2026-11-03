@@ -84,6 +84,10 @@ public class ValuationEngine {
         return itemValues.getOrDefault(item, ItemValuation.UNKNOWN);
     }
 
+    public Optional<Map<Item, ItemValuation>> getValuations() {
+        return economyReady ? Optional.of(Map.copyOf(itemValues)) : Optional.empty();
+    }
+
     public Optional<Map<Item, AnchorEntry>> getAnchors() {
         if (!economyReady) return Optional.empty();
         Map<Item, AnchorEntry> snapshot = new HashMap<>();
