@@ -9,6 +9,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
 
 import java.util.HashMap;
@@ -20,9 +21,11 @@ public final class EntityDropEvaluator {
 
     private EntityDropEvaluator() {}
 
-    public static Map<Item, ItemValuation> evaluateDrops(Map<EntityType<?>, EntityTier> tiers,
+    public record DropAnchor(ItemValuation valuation, ResourceLocation lootTableId) {}
+
+    public static Map<Item, DropAnchor> evaluateDrops(Map<EntityType<?>, EntityTier> tiers,
             DiscoveryResult discovery, double xpValueMultiplier) {
-        Map<Item, ItemValuation> anchors = new HashMap<>();
+        Map<Item, DropAnchor> anchors = new HashMap<>();
         discovery.failures().forEach((type, reason) -> LOGGER.error("Could not simulate loot for {}: {}",
                 BuiltInRegistries.ENTITY_TYPE.getKey(type), reason));
 
@@ -49,7 +52,7 @@ public final class EntityDropEvaluator {
                     return;
                 }
                 ItemValuation candidate = new ItemValuation(unitValue, 0, tier.tier(), tier.farmable());
-                anchors.merge(item, candidate, EntityDropEvaluator::cheapestSource);
+                anchors.merge(item, new DropAnchor(candidate, tier.lootTableId().location()), EntityDropEvaluator::cheapestSource);
                 LOGGER.debug("Mob: {} | Item: {} | Expected yield: {} | Budget: {} | Unit value: {}",
                         BuiltInRegistries.ENTITY_TYPE.getKey(type), BuiltInRegistries.ITEM.getKey(item),
                         drops.get(item), budget, value);
@@ -79,12 +82,15 @@ public final class EntityDropEvaluator {
         return valid;
     }
 
-    private static ItemValuation cheapestSource(ItemValuation first, ItemValuation second) {
-        ItemValuation cheapest = first;
-        if (second.value() < first.value()
-                || (second.value() == first.value() && second.techLevel() < first.techLevel())) {
+    private static DropAnchor cheapestSource(DropAnchor first, DropAnchor second) {
+        DropAnchor cheapest = first;
+        if (second.valuation().value() < first.valuation().value()
+                || (second.valuation().value() == first.valuation().value()
+                && second.valuation().techLevel() < first.valuation().techLevel())) {
             cheapest = second;
         }
-        return cheapest.withBulkFarmable(first.isBulkFarmable() || second.isBulkFarmable());
+        ItemValuation value = cheapest.valuation().withBulkFarmable(
+                first.valuation().isBulkFarmable() || second.valuation().isBulkFarmable());
+        return new DropAnchor(value, cheapest.lootTableId());
     }
 }

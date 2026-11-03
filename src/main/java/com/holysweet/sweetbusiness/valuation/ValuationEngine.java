@@ -12,6 +12,7 @@ import com.holysweet.sweetbusiness.config.ValuationConfig;
 import com.holysweet.sweetbusiness.util.Constants;
 import com.holysweet.sweetbusiness.util.TagResolver;
 import com.holysweet.sweetbusiness.evaluation.block.TierResolver;
+import com.holysweet.sweetbusiness.evaluation.worldgen.TerrainClassifier;
 import com.holysweet.sweetbusiness.discovery.block.BlockDropDiscoverer;
 import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer;
 import com.holysweet.sweetbusiness.discovery.entity.EntityDiscoverer.EntityProperties;
@@ -46,6 +47,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
+import java.util.TreeSet;
 
 public class ValuationEngine {
 
@@ -53,6 +56,11 @@ public class ValuationEngine {
     private static final ValuationEngine INSTANCE = new ValuationEngine();
 
     private final Map<Item, ItemValuation> itemValues = new HashMap<>();
+    private final Map<Item, AnchorSource> anchorSources = new HashMap<>();
+    private boolean economyReady;
+
+    private record AnchorSource(String type, String detail) {}
+    public record AnchorEntry(ItemValuation valuation, String source, String sourceDetail) {}
 
     private Map<EntityType<?>, EntityTierEvaluator.EntityTier> entityTiers = Map.of();
     private Map<EntityType<?>, String> unidentifiedEntities = Map.of();
@@ -74,6 +82,14 @@ public class ValuationEngine {
      */
     public ItemValuation getValuation(Item item) {
         return itemValues.getOrDefault(item, ItemValuation.UNKNOWN);
+    }
+
+    public Optional<Map<Item, AnchorEntry>> getAnchors() {
+        if (!economyReady) return Optional.empty();
+        Map<Item, AnchorEntry> snapshot = new HashMap<>();
+        anchorSources.forEach((item, source) -> snapshot.put(item,
+                new AnchorEntry(itemValues.get(item), source.type(), source.detail())));
+        return Optional.of(Map.copyOf(snapshot));
     }
 
     public Map<EntityType<?>, EntityTierEvaluator.EntityTier> getEntityTiers() {
@@ -108,7 +124,9 @@ public class ValuationEngine {
      * Executes the full economy discovery and calculation process.
      */
     public void calculateEconomy(MinecraftServer server) {
+        economyReady = false;
         itemValues.clear();
+        anchorSources.clear();
 
         var entityDiscovery = EntityDiscoverer.discoverEntities(server);
         entityTiers = EntityEvaluator.evaluateEntities(entityDiscovery, ServerConfig.SPAWN_EGGS_ENABLE_FARMING.get());
@@ -127,6 +145,7 @@ public class ValuationEngine {
         var crops = CropEvaluator.evaluateCrops(CropDiscoverer.discoverCrops(server.overworld(), placements));
         var cropAnchors = CropValuator.valueNaturalCrops(crops, ValuationConfig.CROP_BASELINE.get().floatValue());
         mergeCropValues(cropAnchors, worldgenAnchors);
+        recordNaturalCropSources(crops);
         worldgenAnchors.addAll(cropAnchors.keySet());
         evaluateEntityDrops(server, worldgenAnchors, entityDiscovery.properties());
 
@@ -166,6 +185,7 @@ public class ValuationEngine {
         }
 
         logConfigDiscrepancies();
+        economyReady = true;
     }
 
     private void seedAnchors() {
@@ -201,6 +221,7 @@ public class ValuationEngine {
             for (Item item : resolvedItems) {
                 // Config values are Override values. Your ItemValuation.createOverride defaults isBulkFarmable to false.
                 itemValues.put(item, ItemValuation.createOverride(baseValue, techLevel));
+                anchorSources.put(item, new AnchorSource("config", (isTag ? "#" : "") + identifier));
             }
         }
     }
@@ -208,6 +229,13 @@ public class ValuationEngine {
     private Set<Item> evaluateBlockDrops(MinecraftServer server, WorldGenDiscoverer.DiscoveryResult worldgen) {
         Set<Item> worldgenAnchors = new HashSet<>();
         var oreBlocks = OreBlockDiscoverer.discoverBlocks(worldgen);
+        Map<Block, Set<String>> oreFeatures = new HashMap<>();
+        var configuredFeatures = server.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.CONFIGURED_FEATURE);
+        oreBlocks.forEach((feature, ore) -> {
+            ResourceLocation id = configuredFeatures.getKey(feature.feature().value());
+            if (id != null) ore.targetStates().forEach(state ->
+                    oreFeatures.computeIfAbsent(state.getBlock(), key -> new TreeSet<>()).add(id.toString()));
+        });
         Map<Block, Double> oreVolumes = OreVolumeEvaluator.evaluateVolumes(worldgen, oreBlocks);
         Map<Block, Double> blockValues = ChunkStandardEvaluator.calculateAnchorValues(oreVolumes);
 
@@ -230,6 +258,10 @@ public class ValuationEngine {
                 } else {
                     // Mined blocks are inherently manual to gather (isBulkFarmable = false)
                     itemValues.put(blockItem, new ItemValuation(blockValue, 0, techLevel, false));
+                    String detail = String.join(";", oreFeatures.getOrDefault(block, Set.of()));
+                    boolean terrain = TerrainClassifier.isBoringTerrain(block);
+                    anchorSources.put(blockItem, new AnchorSource(terrain ? "terrain" : "worldgen",
+                            terrain || detail.isEmpty() ? BuiltInRegistries.BLOCK.getKey(block).toString() : detail));
                 }
             }
 
@@ -257,6 +289,7 @@ public class ValuationEngine {
                     }
                 } else {
                     itemValues.put(droppedItem, new ItemValuation(dropValue, 0, techLevel, false));
+                    anchorSources.put(droppedItem, new AnchorSource("block_drop", block.getLootTable().location().toString()));
                 }
             }
         }
@@ -268,10 +301,12 @@ public class ValuationEngine {
         var discovery = EntityLootDiscoverer.discoverLoot(server, entities);
         entityDrops = discovery.expectedDrops();
         var anchors = EntityDropEvaluator.evaluateDrops(entityTiers, discovery, ValuationConfig.MOB_XP_VALUE_MULTIPLIER.get());
-        anchors.forEach((item, candidate) -> {
+        anchors.forEach((item, anchor) -> {
+            ItemValuation candidate = anchor.valuation();
             ItemValuation existing = itemValues.get(item);
             if (existing == null) {
                 itemValues.put(item, candidate);
+                anchorSources.put(item, new AnchorSource("mob_loot", anchor.lootTableId().toString()));
                 return;
             }
 
@@ -283,6 +318,7 @@ public class ValuationEngine {
                 } else if (candidate.value() < existing.value()
                         || (candidate.value() == existing.value() && candidate.techLevel() < existing.techLevel())) {
                     merged = candidate;
+                    anchorSources.put(item, new AnchorSource("mob_loot", anchor.lootTableId().toString()));
                 }
             }
             itemValues.put(item, merged.withBulkFarmable(bulkFarmable));
@@ -298,6 +334,7 @@ public class ValuationEngine {
             ItemValuation merged = existing;
             if (existing == null) {
                 merged = candidate;
+                anchorSources.remove(item);
             } else if (existing.isConfigOverride()) {
                 if (!candidate.isConfigOverride() && (existing.calculatedValue() <= 0
                         || candidate.value() < existing.calculatedValue() - 0.00001f)) {
@@ -306,6 +343,7 @@ public class ValuationEngine {
             } else if (!anchors.contains(item) && (candidate.value() < existing.value() - 0.00001f
                     || (candidate.value() == existing.value() && candidate.techLevel() < existing.techLevel()))) {
                 merged = candidate;
+                anchorSources.remove(item);
             }
             merged = merged.withBulkFarmable(true);
             if (!merged.equals(existing)) {
@@ -314,6 +352,17 @@ public class ValuationEngine {
             }
         }
         return changed;
+    }
+
+    private void recordNaturalCropSources(Map<Item, CropEvaluation> crops) {
+        crops.entrySet().stream()
+                .sorted(java.util.Comparator.comparing(entry -> BuiltInRegistries.ITEM.getKey(entry.getKey()).toString()))
+                .forEach(entry -> {
+                    if (!entry.getValue().hasWorldgenSource()) return;
+                    AnchorSource source = new AnchorSource("crop", BuiltInRegistries.ITEM.getKey(entry.getKey()).toString());
+                    anchorSources.putIfAbsent(entry.getKey(), source);
+                    entry.getValue().harvestItems().forEach(item -> anchorSources.putIfAbsent(item, source));
+                });
     }
 
     private int runValuationLoop(MinecraftServer server, RegistryAccess registryAccess,
@@ -421,6 +470,7 @@ public class ValuationEngine {
             return true; // Return true so subsequent recipes using the shadow value also update
         } else if (shouldUpdateActive) {
             itemValues.put(resultItem, new ItemValuation(finalValue, newDepth, recipeTechLevel, isRecipeBulkFarmable));
+            anchorSources.remove(resultItem);
             return true;
         }
 

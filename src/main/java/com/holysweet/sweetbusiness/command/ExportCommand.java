@@ -2,6 +2,7 @@ package com.holysweet.sweetbusiness.command;
 
 import com.holysweet.sweetbusiness.export.ExportHandler;
 import com.holysweet.sweetbusiness.export.ExportReport;
+import com.holysweet.sweetbusiness.export.report.AnchorReport;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.logging.LogUtils;
@@ -26,7 +27,7 @@ public final class ExportCommand {
     private ExportCommand() {}
 
     public static LiteralArgumentBuilder<CommandSourceStack> register() {
-        return register(List.of());
+        return register(List.of(new AnchorReport()));
     }
 
     public static LiteralArgumentBuilder<CommandSourceStack> register(List<ExportReport> reports) {
