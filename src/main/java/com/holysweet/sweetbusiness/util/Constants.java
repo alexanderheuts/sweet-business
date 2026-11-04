@@ -7,10 +7,10 @@ public final class Constants {
     public static final double MOB_HIGH_HEALTH_THRESHOLD = 80.0;
     public static final double MOB_MODERATE_HEALTH_THRESHOLD = 40.0;
     public static final int MOB_XP_SIMULATION_ITERATIONS = 50;
-    public static final int MOB_LOOT_SIMULATION_ITERATIONS = 1000;
-    public static final int CROP_LOOT_SIMULATION_ITERATIONS = 1000;
-    public static final int GRASS_LOOT_SIMULATION_ITERATIONS = 1000;
-    public static final int TREE_LOOT_SIMULATION_ITERATIONS = 1000;
+    public static final int MOB_LOOT_SIMULATION_ITERATIONS = 100;
+    public static final int CROP_LOOT_SIMULATION_ITERATIONS = 100;
+    public static final int GRASS_LOOT_SIMULATION_ITERATIONS = 100;
+    public static final int TREE_LOOT_SIMULATION_ITERATIONS = 100;
     public static final double DEFAULT_CROP_BASELINE = 0.01;
     public static final double DEFAULT_SAPLING_BASELINE = 0.01;
     public static final double DEFAULT_TREE_WOOD_BASELINE = 0.016;
