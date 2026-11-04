@@ -1,13 +1,10 @@
 package com.holysweet.sweetbusiness.command;
 
-import com.holysweet.sweetbusiness.config.ServerConfig;
 import com.holysweet.sweetbusiness.contract.Contract;
+import com.holysweet.sweetbusiness.contract.ContractGenerationService;
 import com.holysweet.sweetbusiness.contract.DeliveryLine;
-import com.holysweet.sweetbusiness.contract.generator.ContractGenerator;
-import com.holysweet.sweetbusiness.progression.CraftableSetManager;
+import com.holysweet.sweetbusiness.item.ContractItem;
 import com.holysweet.sweetbusiness.util.Constants;
-import com.holysweet.sweetbusiness.valuation.ItemValuation;
-import com.holysweet.sweetbusiness.valuation.ValuationEngine;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -15,18 +12,13 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class ContractCommand {
 
@@ -38,7 +30,12 @@ public class ContractCommand {
                 .then(Commands.literal("mock")
                         .then(Commands.argument("tier", IntegerArgumentType.integer(
                                         Constants.MIN_CONTRACT_TIER, Constants.MAX_CONTRACT_TIER))
-                                .executes(ContractCommand::generateMock)));
+                                .executes(ContractCommand::generateMock)))
+                .then(Commands.literal("give")
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .then(Commands.argument("tier", IntegerArgumentType.integer(
+                                                Constants.MIN_CONTRACT_TIER, Constants.MAX_CONTRACT_TIER))
+                                        .executes(ContractCommand::giveContract))));
     }
 
     private static int generateMock(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -47,8 +44,7 @@ public class ContractCommand {
         int tier = IntegerArgumentType.getInteger(context, "tier");
 
         try {
-            var contract = ContractGenerator.generate(UUID.randomUUID(), tier, getCraftableValuations(player),
-                    ServerConfig.CONTRACT_EXTRA_LINE_CHANCE.get(), ThreadLocalRandom.current().nextLong());
+            var contract = ContractGenerationService.generate(player, tier);
             if (contract.isEmpty()) {
                 source.sendFailure(Component.literal("No mock contract generated: no eligible items could fill its lines."));
                 return 0;
@@ -63,14 +59,40 @@ public class ContractCommand {
         }
     }
 
-    private static Map<ResourceLocation, ItemValuation> getCraftableValuations(ServerPlayer player) {
-        var itemIds = CraftableSetManager.getInstance().getCraftableItems(player.server, player.getUUID());
-        Map<ResourceLocation, ItemValuation> valuations = new HashMap<>();
-        for (ResourceLocation itemId : itemIds) {
-            BuiltInRegistries.ITEM.getOptional(itemId).ifPresent(item ->
-                    valuations.put(itemId, ValuationEngine.getInstance().getValuation(item)));
+    private static int giveContract(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        var source = context.getSource();
+        ServerPlayer player = EntityArgument.getPlayer(context, "player");
+        int tier = IntegerArgumentType.getInteger(context, "tier");
+
+        Contract contract;
+        try {
+            var generated = ContractGenerationService.generate(player, tier);
+            if (generated.isEmpty()) {
+                source.sendFailure(Component.literal("No contract generated for " + player.getGameProfile().getName()
+                        + ": their CraftableSet is empty or no eligible items could fill its lines."));
+                return 0;
+            }
+            contract = generated.get();
+        } catch (IllegalArgumentException exception) {
+            LOGGER.error("Could not generate tier {} contract for {}", tier, player.getUUID(), exception);
+            source.sendFailure(Component.literal("Could not generate contract: " + exception.getMessage()));
+            return 0;
         }
-        return valuations;
+
+        var stack = ContractItem.create(contract);
+        player.getInventory().add(stack);
+        boolean dropped = !stack.isEmpty();
+        if (dropped) {
+            var entity = player.drop(stack, false);
+            if (entity != null) {
+                entity.setNoPickUpDelay();
+                entity.setTarget(player.getUUID());
+            }
+        }
+        player.containerMenu.broadcastChanges();
+        send(source, "Generated tier %d contract for %s%s", tier, player.getGameProfile().getName(),
+                dropped ? " (dropped at their feet: inventory full)." : ".");
+        return Command.SINGLE_SUCCESS;
     }
 
     private static void printContract(CommandSourceStack source, Contract contract) {
