@@ -6,7 +6,7 @@ import java.util.Objects;
 
 public record ContractReward(ResourceLocation type) {
 
-    public static final ContractReward STUB = new ContractReward(ResourceLocation.fromNamespaceAndPath("sweetbusiness", "stub"));
+    public static final ContractReward DIAMOND = new ContractReward(ResourceLocation.fromNamespaceAndPath("sweetbusiness", "diamond"));
 
     public ContractReward {
         Objects.requireNonNull(type);

@@ -18,7 +18,7 @@ public record Contract(UUID id, int tier, List<DeliveryLine> lines, ContractRewa
     }
 
     public Contract(UUID id, int tier, List<DeliveryLine> lines) {
-        this(id, tier, lines, ContractReward.STUB);
+        this(id, tier, lines, ContractReward.DIAMOND);
     }
 
     public double totalValue() {

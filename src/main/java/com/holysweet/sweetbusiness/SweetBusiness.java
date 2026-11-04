@@ -5,6 +5,8 @@ import com.holysweet.sweetbusiness.config.TierConfig;
 import com.holysweet.sweetbusiness.config.ValuationConfig;
 import com.holysweet.sweetbusiness.event.ServerEventHandler;
 import com.holysweet.sweetbusiness.event.LedgerEventHandler;
+import com.holysweet.sweetbusiness.item.ModDataComponents;
+import com.holysweet.sweetbusiness.item.ModItems;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -18,6 +20,9 @@ public class SweetBusiness {
     public static final String MODID = "sweetbusiness";
 
     public SweetBusiness(IEventBus modEventBus, ModContainer modContainer) {
+
+        ModDataComponents.COMPONENTS.register(modEventBus);
+        ModItems.ITEMS.register(modEventBus);
 
         NeoForge.EVENT_BUS.register(new ServerEventHandler());
         NeoForge.EVENT_BUS.register(new LedgerEventHandler());

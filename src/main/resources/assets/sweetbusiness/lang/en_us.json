@@ -1,3 +1,11 @@
 {
-  "sweetbusiness.configuration.title": "Sweet Business Configs"
+  "sweetbusiness.configuration.title": "Sweet Business Configs",
+  "item.sweetbusiness.contract": "Contract",
+  "tooltip.sweetbusiness.contract.missing": "Missing contract details",
+  "tooltip.sweetbusiness.contract.tier": "Tier: %s",
+  "tooltip.sweetbusiness.contract.line": "%s: %s / %s",
+  "tooltip.sweetbusiness.contract.diamond_reward": "Reward: 1 %s",
+  "tooltip.sweetbusiness.contract.reward": "Reward: %s",
+  "tooltip.sweetbusiness.contract.complete": "Complete",
+  "tooltip.sweetbusiness.contract.incomplete": "In progress"
 }
