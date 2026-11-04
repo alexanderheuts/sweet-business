@@ -28,11 +28,12 @@ public class SweetBusinessClient {
 
     @SubscribeEvent
     static void onItemTooltip(ItemTooltipEvent event) {
-        ContractItem.getContract(event.getItemStack()).filter(contract -> !contract.isComplete()).ifPresent(contract -> {
+        ContractItem.getContract(event.getItemStack()).ifPresent(contract -> {
             var options = Minecraft.getInstance().options;
-            event.getToolTip().add(Component.translatable("tooltip.sweetbusiness.contract.deliver",
-                    options.keyShift.getTranslatedKeyMessage(), options.keyUse.getTranslatedKeyMessage())
-                    .withStyle(ChatFormatting.AQUA));
+            Component hint = Component.translatable(contract.isComplete()
+                            ? "tooltip.sweetbusiness.contract.redeem" : "tooltip.sweetbusiness.contract.deliver",
+                    options.keyShift.getTranslatedKeyMessage(), options.keyUse.getTranslatedKeyMessage());
+            event.getToolTip().add(hint.copy().withStyle(ChatFormatting.AQUA));
         });
     }
 

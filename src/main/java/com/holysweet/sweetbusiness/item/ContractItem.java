@@ -2,6 +2,7 @@ package com.holysweet.sweetbusiness.item;
 
 import com.holysweet.sweetbusiness.contract.Contract;
 import com.holysweet.sweetbusiness.contract.ContractReward;
+import com.holysweet.sweetbusiness.contract.ContractRedemption;
 import com.holysweet.sweetbusiness.contract.DeliveryLine;
 import com.holysweet.sweetbusiness.contract.InventoryContractDelivery;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -47,8 +48,18 @@ public final class ContractItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
         ItemStack stack = player.getItemInHand(usedHand);
         Contract contract = getContract(stack).orElse(null);
-        if (!player.isShiftKeyDown() || contract == null || contract.isComplete()) {
+        if (contract == null || !player.isShiftKeyDown()) {
             return InteractionResultHolder.pass(stack);
+        }
+        if (contract.isComplete()) {
+            if (!level.isClientSide) {
+                boolean redeemed = ContractRedemption.redeem(player, stack);
+                player.displayClientMessage(Component.translatable(redeemed
+                        ? "message.sweetbusiness.contract.redeemed"
+                        : "message.sweetbusiness.contract.unsupported_reward"), true);
+            }
+            // The reward may now occupy the consumed contract's hand slot.
+            return InteractionResultHolder.sidedSuccess(player.getItemInHand(usedHand), level.isClientSide);
         }
         if (!level.isClientSide) {
             var result = InventoryContractDelivery.deliver(contract, player.getInventory(), stack);
