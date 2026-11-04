@@ -3,11 +3,17 @@ package com.holysweet.sweetbusiness.item;
 import com.holysweet.sweetbusiness.contract.Contract;
 import com.holysweet.sweetbusiness.contract.ContractReward;
 import com.holysweet.sweetbusiness.contract.DeliveryLine;
+import com.holysweet.sweetbusiness.contract.InventoryContractDelivery;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -19,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 @ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public final class ContractItem extends Item {
 
     public ContractItem(Properties properties) {
@@ -34,6 +41,29 @@ public final class ContractItem extends Item {
     public static Optional<Contract> getContract(ItemStack stack) {
         return stack.is(ModItems.CONTRACT.get())
                 ? Optional.ofNullable(stack.get(ModDataComponents.CONTRACT.get())) : Optional.empty();
+    }
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
+        ItemStack stack = player.getItemInHand(usedHand);
+        Contract contract = getContract(stack).orElse(null);
+        if (!player.isShiftKeyDown() || contract == null || contract.isComplete()) {
+            return InteractionResultHolder.pass(stack);
+        }
+        if (!level.isClientSide) {
+            var result = InventoryContractDelivery.deliver(contract, player.getInventory(), stack);
+            int delivered = result.acceptedItems().values().stream().mapToInt(Integer::intValue).sum();
+            if (delivered > 0) {
+                stack.set(ModDataComponents.CONTRACT.get(), result.contract());
+                player.containerMenu.broadcastChanges();
+            }
+            Component message = result.contract().isComplete()
+                    ? Component.translatable("message.sweetbusiness.contract.complete")
+                    : delivered > 0 ? Component.translatable("message.sweetbusiness.contract.delivered", delivered)
+                    : Component.translatable("message.sweetbusiness.contract.no_matching_items");
+            player.displayClientMessage(message, true);
+        }
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }
 
     @Override

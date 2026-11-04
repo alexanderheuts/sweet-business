@@ -7,5 +7,9 @@
   "tooltip.sweetbusiness.contract.diamond_reward": "Reward: 1 %s",
   "tooltip.sweetbusiness.contract.reward": "Reward: %s",
   "tooltip.sweetbusiness.contract.complete": "Complete",
-  "tooltip.sweetbusiness.contract.incomplete": "In progress"
+  "tooltip.sweetbusiness.contract.incomplete": "In progress",
+  "tooltip.sweetbusiness.contract.deliver": "%s + %s: deliver from main inventory",
+  "message.sweetbusiness.contract.delivered": "Delivered %s items.",
+  "message.sweetbusiness.contract.complete": "Contract complete.",
+  "message.sweetbusiness.contract.no_matching_items": "No matching items in main inventory."
 }

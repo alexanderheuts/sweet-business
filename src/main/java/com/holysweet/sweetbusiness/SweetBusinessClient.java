@@ -1,5 +1,9 @@
 package com.holysweet.sweetbusiness;
 
+import com.holysweet.sweetbusiness.item.ContractItem;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -8,6 +12,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 // This class will not load on dedicated servers. Accessing client side code from here is safe.
 @Mod(value = SweetBusiness.MODID, dist = Dist.CLIENT)
@@ -19,6 +24,16 @@ public class SweetBusinessClient {
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
         // Do not forget to add translations for your config options to the en_us.json file.
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+    }
+
+    @SubscribeEvent
+    static void onItemTooltip(ItemTooltipEvent event) {
+        ContractItem.getContract(event.getItemStack()).filter(contract -> !contract.isComplete()).ifPresent(contract -> {
+            var options = Minecraft.getInstance().options;
+            event.getToolTip().add(Component.translatable("tooltip.sweetbusiness.contract.deliver",
+                    options.keyShift.getTranslatedKeyMessage(), options.keyUse.getTranslatedKeyMessage())
+                    .withStyle(ChatFormatting.AQUA));
+        });
     }
 
     @SubscribeEvent
