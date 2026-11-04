@@ -71,7 +71,7 @@ public final class ValuationEngine {
 
     public void calculateEconomy(MinecraftServer server) {
         EconomyInputs inputs = EconomyBuilder.prepare(server);
-        EconomyResult result = ValuationCalculator.calculate(inputs, true);
+        EconomyResult result = ManufacturingCostCalculator.calculate(inputs, true);
         EconomyBuilder.logResult(inputs, result);
         // Publish the complete inputs and result together; failed or isolated calculations cannot alter live values.
         economy = new Economy(inputs, result);

@@ -19,18 +19,22 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public final class ValuationCalculator {
+/**
+ * Calculates manufacturing costs from prepared anchors and production relationships.
+ * Preserves the existing bulk-farmable route preference as well as price comparisons.
+ */
+public final class ManufacturingCostCalculator {
 
     private final EconomyInputs inputs;
     private final Map<Item, ItemValuation> itemValues = new HashMap<>();
     private final Map<Item, AnchorSource> anchorSources = new HashMap<>();
 
-    private ValuationCalculator(EconomyInputs inputs) {
+    private ManufacturingCostCalculator(EconomyInputs inputs) {
         this.inputs = inputs;
     }
 
     public static EconomyResult calculate(EconomyInputs inputs, boolean includeConfiguredAnchors) {
-        return new ValuationCalculator(inputs).calculate(includeConfiguredAnchors);
+        return new ManufacturingCostCalculator(inputs).calculate(includeConfiguredAnchors);
     }
 
     private EconomyResult calculate(boolean includeConfiguredAnchors) {
@@ -51,7 +55,7 @@ public final class ValuationCalculator {
         seedMobAnchors(worldgenAnchors);
         Set<Item> renewableAnchors = new HashSet<>(inputs.naturalCropAnchors().keySet());
         renewableAnchors.addAll(inputs.naturalTreeAnchors().keySet());
-        int iterations = runValuationLoop(inputs.crops(), renewableAnchors, worldgenAnchors);
+        int iterations = runManufacturingCostLoop(inputs.crops(), renewableAnchors, worldgenAnchors);
         int unresolved = (int) inputs.recipes().stream()
                 .filter(recipe -> !itemValues.getOrDefault(recipe.output(), ItemValuation.UNKNOWN).isKnown()).count();
         return new EconomyResult(itemValues, anchorSources, iterations, unresolved);
@@ -68,7 +72,7 @@ public final class ValuationCalculator {
                     itemValues.put(blockItem, new ItemValuation(block.value(), 0, block.techLevel(), false));
                     anchorSources.put(blockItem, block.source());
                 } else if (existing.isConfigOverride()) {
-                    itemValues.put(blockItem, existing.withCalculatedValue(block.value()));
+                    itemValues.put(blockItem, existing.withCalculatedCost(block.value()));
                 }
             }
             for (var drop : block.drops().entrySet()) {
@@ -80,7 +84,7 @@ public final class ValuationCalculator {
                     itemValues.put(item, new ItemValuation(value, 0, block.techLevel(), false));
                     anchorSources.put(item, new AnchorSource("block_drop", block.lootTableId().toString()));
                 } else if (existing.isConfigOverride()) {
-                    itemValues.put(item, existing.withCalculatedValue(value));
+                    itemValues.put(item, existing.withCalculatedCost(value));
                 }
             }
         }
@@ -102,7 +106,7 @@ public final class ValuationCalculator {
             ItemValuation merged = existing;
             if (!worldgenAnchors.contains(item)) {
                 if (existing.isConfigOverride()) {
-                    merged = existing.withCalculatedValue(candidate.value());
+                    merged = existing.withCalculatedCost(candidate.value());
                 } else if (candidate.value() < existing.value()
                         || (candidate.value() == existing.value() && candidate.techLevel() < existing.techLevel())) {
                     merged = candidate;
@@ -124,9 +128,9 @@ public final class ValuationCalculator {
                 merged = candidate;
                 anchorSources.remove(item);
             } else if (existing.isConfigOverride()) {
-                if (!candidate.isConfigOverride() && (existing.calculatedValue() <= 0
-                        || candidate.value() < existing.calculatedValue() - 0.00001f)) {
-                    merged = existing.withCalculatedValue(candidate.value());
+                if (!candidate.isConfigOverride() && (existing.calculatedCost() <= 0
+                        || candidate.value() < existing.calculatedCost() - 0.00001f)) {
+                    merged = existing.withCalculatedCost(candidate.value());
                 }
             } else if (!anchors.contains(item) && (candidate.value() < existing.value() - 0.00001f
                     || (candidate.value() == existing.value() && candidate.techLevel() < existing.techLevel()))) {
@@ -159,7 +163,7 @@ public final class ValuationCalculator {
                 });
     }
 
-    private int runValuationLoop(Map<Item, CropEvaluation> crops, Set<Item> renewableAnchors, Set<Item> worldgenAnchors) {
+    private int runManufacturingCostLoop(Map<Item, CropEvaluation> crops, Set<Item> renewableAnchors, Set<Item> worldgenAnchors) {
         Set<Item> bulkRenewableItems = new HashSet<>(crops.keySet());
         crops.values().forEach(crop -> bulkRenewableItems.addAll(crop.harvestItems()));
         inputs.trees().values().forEach(tree -> bulkRenewableItems.addAll(tree.outputs().keySet()));
@@ -181,7 +185,7 @@ public final class ValuationCalculator {
                     ItemValuation existing = itemValues.get(result);
                     if (existing != null && existing.value() > 0) continue;
                 }
-                if (evaluateRecipe(recipe, renewableAnchors, bulkRenewableItems)) {
+                if (updateRecipeManufacturingCost(recipe, renewableAnchors, bulkRenewableItems)) {
                     changed = true;
                 }
             }
@@ -196,7 +200,7 @@ public final class ValuationCalculator {
                 .anyMatch(option -> option.item() != recipe.output() && tree.outputs().containsKey(option.item())));
     }
 
-    private boolean evaluateRecipe(RecipeInput recipe, Set<Item> renewableAnchors, Set<Item> bulkRenewableItems) {
+    private boolean updateRecipeManufacturingCost(RecipeInput recipe, Set<Item> renewableAnchors, Set<Item> bulkRenewableItems) {
         Item resultItem = recipe.output();
         ItemValuation current = itemValues.get(resultItem);
         if (renewableAnchors.contains(resultItem) && current != null && !current.isConfigOverride()) return false;
@@ -213,7 +217,7 @@ public final class ValuationCalculator {
         boolean canResolve = true;
 
         for (IngredientInput ingredient : recipe.ingredients()) {
-            ItemValuation cheapest = findCheapestIngredient(ingredient);
+            ItemValuation cheapest = findCheapestIngredientCost(ingredient);
 
             // Short-circuit abort on the first unpriced/missing ingredient
             if (cheapest == null || cheapest.value() <= 0.00001f) {
@@ -251,7 +255,7 @@ public final class ValuationCalculator {
         } else {
             if (existingValuation.isConfigOverride()) {
                 // Update shadow math if it's uninitialized, or we found a strictly cheaper recipe path
-                if (existingValuation.calculatedValue() == 0.0f || finalValue < existingValuation.calculatedValue() - epsilon) {
+                if (existingValuation.calculatedCost() == 0.0f || finalValue < existingValuation.calculatedCost() - epsilon) {
                     shouldUpdateShadow = true;
                 }
             } else if (finalValue < existingValuation.value() - epsilon) {
@@ -263,7 +267,7 @@ public final class ValuationCalculator {
         }
 
         if (shouldUpdateShadow) {
-            itemValues.put(resultItem, existingValuation.withCalculatedValue(finalValue));
+            itemValues.put(resultItem, existingValuation.withCalculatedCost(finalValue));
             return true; // Return true so subsequent recipes using the shadow value also update
         } else if (shouldUpdateActive) {
             itemValues.put(resultItem, new ItemValuation(finalValue, newDepth, recipeTechLevel, isRecipeBulkFarmable));
@@ -274,7 +278,7 @@ public final class ValuationCalculator {
         return false;
     }
 
-    private ItemValuation findCheapestIngredient(IngredientInput ingredient) {
+    private ItemValuation findCheapestIngredientCost(IngredientInput ingredient) {
         float cheapestValue = Float.MAX_VALUE;
         int bestDepth = 0;
         int bestTechLevel = 0;

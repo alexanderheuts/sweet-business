@@ -57,10 +57,10 @@ public class ValueCommand {
         }
 
         // Format the output message
-        return String.format("§fValue of §e%s§f: §a%.5f §7(Math: %.5f) §r%s",
+        return String.format("§fValue of §e%s§f: §a%.5f §7(Calculated cost: %.5f) §r%s",
                 itemName,
                 valuation.value(),
-                valuation.calculatedValue(),
+                valuation.calculatedCost(),
                 origin);
     }
 }

@@ -212,13 +212,13 @@ public final class EconomyBuilder {
                     String itemName = BuiltInRegistries.ITEM.getKey(entry.getKey()).toString();
                     ItemValuation valuation = entry.getValue();
 
-                    String mathStr = valuation.calculatedValue() > 0.0f ?
-                            String.format("%.2f", valuation.calculatedValue()) : "BLIND SPOT (No Math)";
+                    String costStr = valuation.calculatedCost() > 0.0f ?
+                            String.format("%.2f", valuation.calculatedCost()) : "BLIND SPOT (No Calculated Cost)";
 
-                    LOGGER.debug("Item: {} | Config Value: {} | Engine Math: {}",
+                    LOGGER.debug("Item: {} | Config Value: {} | Calculated Cost: {}",
                             itemName,
                             String.format("%.2f", valuation.value()),
-                            mathStr);
+                            costStr);
                 });
         LOGGER.debug("=============================================");
 

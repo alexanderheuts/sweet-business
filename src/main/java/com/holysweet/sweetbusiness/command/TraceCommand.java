@@ -75,7 +75,7 @@ public class TraceCommand {
         // Handle empty ingredient recipes (like Smithing)
         if (ingredientCounts.isEmpty()) {
             send(context, "§8- §f" + holder.id().getPath() + " §7(Yield " + yield + ")");
-            send(context, "    §7Cost: §cUNRESOLVABLE (No standard ingredients)");
+            send(context, "    §7Manufacturing cost: §cUNRESOLVABLE (No standard ingredients)");
             return;
         }
 
@@ -121,7 +121,7 @@ public class TraceCommand {
         if (isUnresolvable) {
             costString = "§cUNKNOWN (Missing ingredient prices)";
         } else if (isWinner) {
-            costString = "§a" + String.format("%.5f", unitCost) + " §a[WINNER]";
+            costString = "§a" + String.format("%.5f", unitCost) + " §a[MATCHES ACTIVE VALUE]";
         } else {
             costString = "§e" + String.format("%.5f", unitCost);
         }
@@ -133,16 +133,17 @@ public class TraceCommand {
         });
 
         send(context, prefix + "§f" + recipeId + " §7(Yield " + yield + ")");
-        send(context, "    §7Cost: " + costString);
+        send(context, "    §7Manufacturing cost: " + costString);
         send(context, "    §7From: " + formula);
     }
 
     private static void printHeader(CommandContext<CommandSourceStack> context, String itemName, ItemValuation valuation) {
         send(context, "§8§m==========[§r §6" + itemName.toUpperCase() + " §8§m]==========");
         if (valuation == ItemValuation.UNKNOWN) {
-            send(context, "§7Final Value: §cUNKNOWN  §7|  Depth: §c-");
+            send(context, "§7Active value: §cUNKNOWN  §7|  Selected route depth: §c-");
         } else {
-            send(context, "§7Final Value: §a" + String.format("%.5f", valuation.value()) + "  §7|  Depth: §b" + valuation.depth());
+            send(context, "§7Active value: §a" + String.format("%.5f", valuation.value()) + "  §7|  Selected route depth: §b" + valuation.depth());
+            send(context, "§7Calculated cost: §a" + String.format("%.5f", valuation.calculatedCost()));
         }
     }
 

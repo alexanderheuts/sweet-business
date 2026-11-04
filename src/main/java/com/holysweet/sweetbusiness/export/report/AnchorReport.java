@@ -28,10 +28,10 @@ public final class AnchorReport implements ExportReport {
                         var anchor = entry.getValue();
                         var value = anchor.valuation();
                         rows.add(List.of(BuiltInRegistries.ITEM.getKey(entry.getKey()).toString(), value.value(),
-                                value.calculatedValue(), value.techLevel(), value.isBulkFarmable(),
+                                value.calculatedCost(), value.techLevel(), value.isBulkFarmable(),
                                 anchor.source(), anchor.sourceDetail()));
                     });
-            return new ExportData(List.of("item_id", "value", "calculated_value", "tier", "bulk_farmable",
+            return new ExportData(List.of("item_id", "value", "calculated_cost", "tier", "bulk_farmable",
                     "source", "source_detail"), rows);
         });
     }
