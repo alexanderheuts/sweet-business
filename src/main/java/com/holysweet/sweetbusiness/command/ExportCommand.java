@@ -3,6 +3,7 @@ package com.holysweet.sweetbusiness.command;
 import com.holysweet.sweetbusiness.export.ExportHandler;
 import com.holysweet.sweetbusiness.export.ExportReport;
 import com.holysweet.sweetbusiness.export.report.AnchorReport;
+import com.holysweet.sweetbusiness.export.report.ValuationReport;
 import com.holysweet.sweetbusiness.export.report.UnresolvedReport;
 import com.holysweet.sweetbusiness.export.report.BaremetalUnresolvedReport;
 import com.mojang.brigadier.Command;
@@ -29,7 +30,7 @@ public final class ExportCommand {
     private ExportCommand() {}
 
     public static LiteralArgumentBuilder<CommandSourceStack> register() {
-        return register(List.of(new AnchorReport(), new UnresolvedReport(), new BaremetalUnresolvedReport()));
+        return register(List.of(new AnchorReport(), new ValuationReport(), new UnresolvedReport(), new BaremetalUnresolvedReport()));
     }
 
     public static LiteralArgumentBuilder<CommandSourceStack> register(List<ExportReport> reports) {

@@ -7,7 +7,7 @@ import com.holysweet.sweetbusiness.util.Constants;
  *
  * @param value            The active economic point value of the item (used in recipes).
  * @param calculatedCost   The calculated cost, retained diagnostically when a hard config anchor fixes value.
- * @param depth            The longest ingredient chain in the selected production route, not the shortest route.
+ * @param depth            The longest ingredient chain in the selected route; anchors have depth zero.
  * @param techLevel        The highest tier of machinery/recipe type required in its lineage.
  * @param isBulkFarmable   True if the item can be mass-produced autonomously.
  * @param isConfigOverride True if the active 'value' was forced by the manual config.

@@ -40,8 +40,13 @@ public class ValueCommand {
 
         // Determine the item's origin based on depth and override flags
         String output = evaluateAndBuildValue(valuation, itemName);
+        ItemValuation manufacturing = ValuationEngine.getInstance().getManufacturingCost(item);
+        String manufacturingOutput = manufacturing.isKnown()
+                ? String.format("Manufacturing cost: %.5f | Route depth: %d", manufacturing.value(), manufacturing.depth())
+                : "Manufacturing cost: unknown";
 
         context.getSource().sendSuccess(() -> Component.literal(output), false);
+        context.getSource().sendSuccess(() -> Component.literal(manufacturingOutput), false);
 
         return Command.SINGLE_SUCCESS;
     }
@@ -57,7 +62,7 @@ public class ValueCommand {
         }
 
         // Format the output message
-        return String.format("§fValue of §e%s§f: §a%.5f §7(Calculated cost: %.5f) §r%s",
+        return String.format("§fBaseline value of §e%s§f: §a%.5f §7(Calculated cost: %.5f) §r%s",
                 itemName,
                 valuation.value(),
                 valuation.calculatedCost(),

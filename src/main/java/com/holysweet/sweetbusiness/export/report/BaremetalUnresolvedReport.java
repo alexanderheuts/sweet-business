@@ -3,7 +3,7 @@ package com.holysweet.sweetbusiness.export.report;
 import com.holysweet.sweetbusiness.export.ExportData;
 import com.holysweet.sweetbusiness.export.ExportReport;
 import com.holysweet.sweetbusiness.recipe.RecipeIndex;
-import com.holysweet.sweetbusiness.valuation.ManufacturingCostCalculator;
+import com.holysweet.sweetbusiness.valuation.BaselineValuationCalculator;
 import com.holysweet.sweetbusiness.valuation.ValuationEngine;
 import net.minecraft.server.MinecraftServer;
 
@@ -19,7 +19,7 @@ public final class BaremetalUnresolvedReport implements ExportReport {
     @Override
     public Optional<ExportData> snapshot(MinecraftServer server) {
         return ValuationEngine.getInstance().getCalculationInputs().map(inputs -> {
-            var result = ManufacturingCostCalculator.calculate(inputs, false);
+            var result = BaselineValuationCalculator.calculate(inputs, false);
             return UnresolvedReport.buildReport(inputs.recipes(), result.itemValues(), RecipeIndex.getInstance());
         });
     }

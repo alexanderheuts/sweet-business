@@ -18,7 +18,7 @@ public final class ValuationEngine {
 
     private volatile Economy economy;
 
-    private record Economy(EconomyInputs inputs, EconomyResult result) {}
+    public record Economy(EconomyInputs inputs, EconomyResult baseline, EconomyResult manufacturing) {}
 
     private ValuationEngine() {}
 
@@ -28,15 +28,24 @@ public final class ValuationEngine {
 
     public ItemValuation getValuation(Item item) {
         Economy current = economy;
-        return current == null ? ItemValuation.UNKNOWN : current.result().getValuation(item);
+        return current == null ? ItemValuation.UNKNOWN : current.baseline().getValuation(item);
     }
 
     public Optional<Map<Item, ItemValuation>> getValuations() {
-        return Optional.ofNullable(economy).map(current -> current.result().itemValues());
+        return Optional.ofNullable(economy).map(current -> current.baseline().itemValues());
     }
 
     public Optional<Map<Item, AnchorEntry>> getAnchors() {
-        return Optional.ofNullable(economy).map(current -> current.result().getAnchors());
+        return Optional.ofNullable(economy).map(current -> current.baseline().getAnchors());
+    }
+
+    public Optional<Economy> getEconomy() {
+        return Optional.ofNullable(economy);
+    }
+
+    public ItemValuation getManufacturingCost(Item item) {
+        Economy current = economy;
+        return current == null ? ItemValuation.UNKNOWN : current.manufacturing().getValuation(item);
     }
 
     public Optional<EconomyInputs> getCalculationInputs() {
@@ -71,10 +80,11 @@ public final class ValuationEngine {
 
     public void calculateEconomy(MinecraftServer server) {
         EconomyInputs inputs = EconomyBuilder.prepare(server);
-        EconomyResult result = ManufacturingCostCalculator.calculate(inputs, true);
-        EconomyBuilder.logResult(inputs, result);
+        EconomyResult baseline = BaselineValuationCalculator.calculate(inputs, true);
+        EconomyResult manufacturing = ManufacturingCostCalculator.calculate(inputs, true);
+        EconomyBuilder.logResult(inputs, baseline);
         // Publish the complete inputs and result together; failed or isolated calculations cannot alter live values.
-        economy = new Economy(inputs, result);
+        economy = new Economy(inputs, baseline, manufacturing);
     }
 
     public void clear() {
